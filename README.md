@@ -10,6 +10,28 @@ Project creators deploy a token distribution contract in **a single transaction*
 
 Core promise: **creators can't take back what recipients are owed**. For airdrops, the creator can't withdraw anything before the claim window closes; for vesting, only the surplus not allocated to anyone can be withdrawn.
 
+## Networks: Arc Testnet and Arc Mainnet
+
+The site supports two networks, picked from the dropdown in the top-right corner (default: **Arc Testnet**; the choice is remembered per browser, and `?network=mainnet|testnet` in a URL overrides it — handy for sharing project links).
+
+|                      | Arc Testnet                                       | Arc Mainnet                                          |
+| -------------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| Chain ID             | 5042002                                           | 5042                                                 |
+| Public RPC           | `https://rpc.testnet.arc.io`                      | `https://rpc.mainnet.arc.io`                         |
+| Explorer             | `https://explorer.testnet.arc.io`                 | `https://explorer.arc.io`                            |
+| TokenShoe contracts  | Deployed (see below)                              | Deployed (see below)                                 |
+| Database             | `DATABASE_URL`                                    | `DATABASE_URL_MAINNET`                               |
+| Test tokens          | Yes                                               | Yes (once `./deploy.sh mainnet` deploys TestTokenFactory; you pay real gas) |
+| Faucet button        | Yes (Circle faucet)                               | No (Circle only hands out testnet USDC)              |
+
+How it works:
+
+- **One config table**: `web/src/config/networks.ts` holds each network's chain, contract addresses and flags. A network with no factory address counts as "not deployed": the site shows "coming soon" and disables Create.
+- **Frontend**: `useNetwork()` (`web/src/hooks/useNetwork.tsx`) gives the selected network to every component; contract calls (create project, mint test token, approve…) use that network's chain and addresses. Switching clears cached data, remounts the page and asks the wallet to switch chains.
+- **Backend**: every API call carries the network (`x-network` header + `?network=`). `route()` runs the handler for that network, so `db()`, `publicClient()` and `contracts()` automatically pick that network's database, RPC and contracts (`web/src/lib/request-network.ts`). Unknown network -> `400 BAD_NETWORK`; no database configured -> `503 NETWORK_UNAVAILABLE`; contracts not deployed -> `503 NETWORK_NOT_DEPLOYED`.
+- **Data never mixes**: each network has its own Postgres database with the same schema. Projects, lists, claims and stats on one network never appear on the other.
+- **Mainnet setup**: contracts deployed with `./deploy.sh mainnet` and their addresses are in the Arc Mainnet section of `web/src/config/networks.ts`. Each environment also needs its own mainnet database: set `DATABASE_URL_MAINNET`, run `bun run db:migrate:mainnet`, then rebuild/redeploy the site.
+
 ---
 
 ## Repository layout
@@ -21,7 +43,7 @@ contracts/                 Solidity contracts (Foundry)
   TokenMerkleDis.sol       Merkle airdrop
   TokenSignDis.sol         EIP-712 signature airdrop
   TokenVesting.sol         Vesting / unlock
-  TestTokenFactory.sol     Testnet helper: anyone can mint a 100M test ERC-20 to try the platform
+  TestTokenFactory.sol     Test helper (testnet + mainnet): anyone can mint a 100M test ERC-20 to try the platform
   script/Deploy.s.sol      Deploy script (3 implementations + factory, registers types 0/1/2, self-checks, writes deployments/)
   test/                    Foundry unit tests
   TokenShoe-design.md       Contract design doc (the most detailed business description)
@@ -30,7 +52,7 @@ web/                       Website: Next.js 14 (pages + API routes) + Postgres +
   src/app/api/             All API routes
   src/components/          UI (create/ wizard, project/ projects & claiming, ui/ primitives, charts/)
   src/hooks/               useChainTx (send tx -> sync), useAuth (wallet sign-in), queries (data fetching)
-  src/config/chain.ts      Chain and factory address (shared by frontend and backend)
+  src/config/networks.ts   Arc Testnet / Arc Mainnet: chains + contract addresses (shared by frontend and backend)
   src/db/schema.ts         Database schema
   src/lib/tx-processor.ts  Transaction sync core
   scripts/e2e.ts           API end-to-end test (41 checks)
@@ -44,11 +66,12 @@ lib/                       Git submodules: forge-std, OpenZeppelin (pinned to 5.
 
 ## Deploying the contracts
 
-One command deploys the 3 implementation contracts + the factory, registers everything, and deploys the `TestTokenFactory` testnet helper:
+One command deploys the 3 implementation contracts + the factory, registers everything, and deploys the `TestTokenFactory` test helper (on testnet and mainnet):
 
 ```bash
 cp .env.example .env        # fill in PRIVATE_KEY (deployer wallet private key)
 ./deploy.sh                 # deploy to Arc testnet
+./deploy.sh mainnet         # deploy to Arc mainnet (asks you to type "mainnet"; also deploys TestTokenFactory for testing)
 ```
 
 **The deployer wallet needs Arc testnet USDC for gas** (gas on Arc is paid in USDC). Faucet: https://faucet.circle.com. The whole deployment is about 8–9 transactions.
@@ -60,26 +83,28 @@ cp .env.example .env        # fill in PRIVATE_KEY (deployer wallet private key)
 3. Deploy for real after you type `yes` (waits for each transaction)
 4. **Verify against on-chain state**: all three types registered correctly and the owner is correct; any mismatch is an error
 5. Write `deployments/<chainId>.json` (record of all addresses)
-6. Write the new addresses into `web/.env.local` (`NEXT_PUBLIC_FACTORY_ADDRESS`, `MERKLE_IMPL`, `SIGN_IMPL`, `VESTING_IMPL`, `NEXT_PUBLIC_TEST_TOKEN_FACTORY`; all other settings untouched) and regenerate the address table in `AGENTS.md`
+6. Write the new addresses into `web/.env.local` (testnet: `NEXT_PUBLIC_FACTORY_ADDRESS`, `MERKLE_IMPL`, `SIGN_IMPL`, `VESTING_IMPL`, `NEXT_PUBLIC_TEST_TOKEN_FACTORY`; mainnet: `NEXT_PUBLIC_MAINNET_FACTORY_ADDRESS`, `MAINNET_MERKLE_IMPL`, `MAINNET_SIGN_IMPL`, `MAINNET_VESTING_IMPL`, `NEXT_PUBLIC_MAINNET_TEST_TOKEN_FACTORY`; all other settings untouched) and regenerate `AGENTS.md` with a table per network
 
 | `.env` variable             | Required | Description                                                                                                                                                                                                                 |
 | --------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PRIVATE_KEY`               | ✅       | Deployer wallet private key (with or without 0x)                                                                                                                                                                            |
 | `ARC_TESTNET_RPC_URL`       | No       | Defaults to `https://rpc.testnet.arc.io`                                                                                                                                                                                    |
+| `ARC_MAINNET_RPC_URL`       | No       | Used by `./deploy.sh mainnet`, defaults to `https://rpc.mainnet.arc.io`. The script checks the RPC really is chain 5042                                                                                                       |
 | `FACTORY_OWNER`             | No       | Final factory owner (e.g. a multisig). Empty = the deployer wallet. If set, the deployer registers the implementations first and then starts the transfer; **that address must call `acceptOwnership()` once** to take over |
-| `DEPLOY_TEST_TOKEN_FACTORY` | No       | Default `true`. Set to `false` to skip the test token helper (e.g. on mainnet); the site then hides the feature                                                                                                             |
+| `DEPLOY_TEST_TOKEN_FACTORY` | No       | Default `true` on every network (mainnet too, for testing with real gas). Set to `false` to skip the test token helper; the site then hides the feature on that network                                                  |
 
-Other usages: `./deploy.sh local` (deploy to local anvil), `./deploy.sh -y` (skip confirmation), `./deploy.sh -h` (help).
+Other usages: `./deploy.sh local` (deploy to local anvil), `./deploy.sh -y` (skip confirmation; refused for mainnet), `./deploy.sh -h` (help).
 
 **After deploying:**
 
 - Restart the site; production needs a rebuild because `NEXT_PUBLIC_*` values are baked into the frontend at build time
 - Project data from an old factory in the database is no longer useful; reset the database
 - Update the production server's environment variables with the new addresses
+- Mainnet: copy the addresses into the Arc Mainnet section of `web/src/config/networks.ts` (`MAINNET_FACTORY`, `MAINNET_IMPLS`, `MAINNET_TEST_TOKEN_FACTORY`) so every build picks them up
 
 ### Current deployment (Arc Testnet, chainId 5042002)
 
-Deployed 2026-10-17 by `0xa30Db5ee76e7d4b2B5F8048518EE160B559A56f9` (also the factory owner). Source of truth: `deployments/5042002.json`; the code defaults (`web/src/config/chain.ts`, `web/src/lib/env.ts`) point here too.
+Deployed 2026-10-17 by `0xa30Db5ee76e7d4b2B5F8048518EE160B559A56f9` (also the factory owner). Source of truth: `deployments/5042002.json`; the code defaults (`web/src/config/networks.ts`) point here too.
 
 | Contract                          | Address                                                                                                                            |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -90,6 +115,20 @@ Deployed 2026-10-17 by `0xa30Db5ee76e7d4b2B5F8048518EE160B559A56f9` (also the fa
 | TestTokenFactory (testnet helper) | [`0x6F846226c060792d2B4934bF9F83760423811eAd`](https://explorer.testnet.arc.io/address/0x6F846226c060792d2B4934bF9F83760423811eAd) |
 
 All three implementations are registered on the factory (verified on-chain). The broadcast log of this deployment is in `broadcast/Deploy.s.sol/5042002/`.
+
+### Current deployment (Arc Mainnet, chainId 5042)
+
+Deployed 2026-10-17 by `0xa30Db5ee76e7d4b2B5F8048518EE160B559A56f9` (also the factory owner). Source of truth: `deployments/5042.json`; the code defaults (`web/src/config/networks.ts`) point here too.
+
+| Contract                      | Address                                                                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| TokenShoeFactory              | [`0x6e79A60Feb913Cd6e1281fF5F5a463345954043b`](https://explorer.arc.io/address/0x6e79A60Feb913Cd6e1281fF5F5a463345954043b) |
+| TokenMerkleDis (impl, type 0) | [`0x1C9Ac4647b98677fE645B8f5a6E4cb725F722824`](https://explorer.arc.io/address/0x1C9Ac4647b98677fE645B8f5a6E4cb725F722824) |
+| TokenSignDis (impl, type 1)   | [`0x663248304204B3ddE9e03355fA3163A23Dc7eE4b`](https://explorer.arc.io/address/0x663248304204B3ddE9e03355fA3163A23Dc7eE4b) |
+| TokenVesting (impl, type 2)   | [`0xf9eB40fB39e1aD27c987b8206D8eF7fE3503F58a`](https://explorer.arc.io/address/0xf9eB40fB39e1aD27c987b8206D8eF7fE3503F58a) |
+| TestTokenFactory (test helper) | [`0xAc68198e66f46920125D48fAfA978c5067cE4B15`](https://explorer.arc.io/address/0xAc68198e66f46920125D48fAfA978c5067cE4B15) |
+
+All three implementations are registered on the factory (verified on-chain). Note: the mainnet TestTokenFactory has the same address as the testnet TokenMerkleDis implementation — same deployer, same nonce, different chains; that's expected.
 
 > `contracts/contract-metadata/*.json` describe an **earlier, unused deployment** (factory `0x5b69…4e8a`, implementations never registered). They are kept for history only; nothing reads them.
 
@@ -142,7 +181,7 @@ All three implementations are registered on the factory (verified on-chain). The
 - `revoke(id)`: revoke a revocable schedule; what has already unlocked still belongs to the beneficiary
 - `claimable(id)` / `schedulesOf(addr)` / `getSchedule(id)`
 
-**Test tokens `TestTokenFactory`** (testnet helper, not part of the distribution protocol)
+**Test tokens `TestTokenFactory`** (test helper on both networks, not part of the distribution protocol)
 
 - `createToken(name, symbol)` -> `token`: deploys a standard ERC-20 (18 decimals, fixed supply) and mints **100,000,000** tokens to the caller. Name 1–50 bytes, symbol 1–11 bytes
 - `tokensOf(creator)` / `tokenCountOf(creator)` / `allTokens(i)` / `allTokensCount()`: list created tokens
@@ -158,9 +197,14 @@ All three implementations are registered on the factory (verified on-chain). The
 | `/explore`            | Everyone           | All projects, filterable by type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `/test-token`         | Anyone testing     | Mint a free test ERC-20 (name + symbol -> 100,000,000 tokens in your wallet), list your test tokens, add them to the wallet, and "Distribute" one straight into the create wizard. Linked from the home page under the hero buttons                                                                                                                                                                                                                                                                                                                                                                               |
 | `/create`             | Creators           | 5-step wizard: type -> token (symbol, decimals and balance read automatically) -> list & parameters -> project details -> deploy. **Merkle**: drop in a CSV to build the list; **Signature**: generate a brand-new signer key in one click (backup download available), optionally upload the list too; **Vesting**: enter manually or upload a CSV. No token yet? The Token step has a "Don't have a token yet?" panel that mints a test token and fills in its address. `/create?token=0x…` pre-fills the token. Deploy skips approval when the allowance is already enough and syncs the backend automatically |
+| `/docs`               | Everyone           | Product guide: overview, quick start, choosing a type, how Merkle / signature / vesting work (vesting timeline diagram, field meanings, decimal days for minute-level tests), claiming, managing a project, CSV formats, test tokens, wallet setup, FAQ, contract addresses. Linked from the nav and footer. Source: `web/src/app/docs/page.tsx` |
 | `/claim`              | Recipients         | Connect a wallet to see everything claimable (all three types in one place) and claim in one click; "Completed" and "History" tabs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `/projects`           | Creators           | Projects I created                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `/projects/[address]` | Everyone / creator | Stats, claim window, my allocation (claim directly), claims, timeline, recipient list / vesting schedules. **Creators get an extra Manage tab**: top up, pause/resume, withdraw (shows how much is withdrawable now), edit details; Merkle: replace the list before start; Signature: add/edit/remove recipients live, provide or rotate the signer key; Vesting: revoke and add schedules                                                                                                                                                                                                                        |
+
+**Network menu** (nav, top-right): switch between Arc Testnet and Arc Mainnet; networks without TokenShoe contracts are marked "Coming soon", show a banner under the nav and block the Create page. Code: `web/src/components/layout/NetworkSelect.tsx`, `NotDeployedBanner.tsx`.
+
+**Faucet button** (nav, next to Connect Wallet, testnets only): copies the connected wallet address to the clipboard and opens Circle's public faucet (https://faucet.circle.com) in a new tab, where the user pastes the address, picks Arc Testnet and requests USDC (Arc's gas token). Circle's faucet has a captcha and its own limits, so the site cannot claim on the user's behalf, and TokenShoe never sends funds from its own wallet. Code: `web/src/components/layout/FaucetButton.tsx`.
 
 **Wallet network check**: wallets send transactions through the RPC URL saved in the wallet, not the site's. If a user added Arc Testnet with a dead RPC (e.g. `rpc.testnet.arc.network`), every transaction fails with an opaque "Requested resource not available". So when a wallet connects, and again before every transaction, the site asks the wallet for the chain id and latest block. If that fails, it calls `wallet_addEthereumChain` with `https://rpc.testnet.arc.io` (MetaMask then asks the user to add/switch to that RPC; once per address per session on connect). If it still fails, a banner under the nav explains how to set the RPC manually. Logic: `web/src/lib/client/walletNetwork.ts` (unit tests: `bun run test`), `web/src/hooks/useWalletNetwork.tsx`.
 
@@ -180,6 +224,7 @@ User acts in the frontend -> wallet sends tx -> tx mined -> frontend POST /api/t
 - The same transaction is processed only once no matter how often it's submitted (`processed_txs` table), so the frontend can retry safely.
 - If a claim/fund transaction for a project arrives before that project's creation tx is synced, the backend recognises the project as "ours" from its bytecode and returns `409 PROJECT_NOT_SYNCED` instead of losing data.
 - Assumption: users act through our frontend. Transactions sent directly to the contracts can still be added by submitting their txHash to `/api/tx`.
+- Every request is for one network (`x-network` header / `?network=`, default `testnet`); see [Networks](#networks-arc-testnet-and-arc-mainnet). A transaction is looked up on that network's chain and written to that network's database. Pending syncs remember which network they belong to.
 
 ### End-to-end flow for each mode
 
@@ -247,7 +292,7 @@ All errors use `{ error: { code, message, details } }`; the frontend can branch 
 
 **CSV formats**
 
-- Airdrop list: `address,amount`, header optional. Amounts are in token units by default (`100` = 100 tokens, decimals allowed); with `unit=wei` they are base units. Duplicate addresses, invalid formats and zero amounts are reported per line (up to 50 at once). Limits: 10MB / 200,000 rows.
+- Airdrop list: `address,amount`, header optional. Amounts are in token units by default (`100` = 100 tokens, decimals allowed); with `unit=wei` they are base units. Duplicate addresses, invalid formats and zero amounts are reported per line (up to 50 at once). Limits: 4MB / 100,000 rows (Vercel caps request bodies at 4.5MB).
 - Vesting schedules: header required: `beneficiary,amount,tge_time,tge_percent,cliff_days,vesting_days,interval_days,revocable`. `tge_time` accepts unix seconds, `YYYY-MM-DD` (00:00 UTC) or an ISO time with timezone. At most 500 schedules per upload.
 
 **Signature airdrop error codes**: `NOT_ELIGIBLE` not on the list, `NOTHING_TO_CLAIM` fully claimed, `NOT_IN_WINDOW` outside the window or paused, `SIGNER_NOT_READY` the creator hasn't provided the key, `CLAIM_PENDING_SYNC` the previous claim is on-chain but not synced (the frontend should resubmit that transaction).
@@ -282,14 +327,16 @@ All addresses are stored lowercase; amounts are `numeric(78,0)` (fits any uint25
 
 | Variable                                                                                                    | Required               | Description                                                                                      |
 | ----------------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                                                                                              | ✅                     | Postgres connection string                                                                       |
+| `DATABASE_URL`                                                                                              | ✅                     | Postgres connection string for **Arc Testnet** data                                              |
+| `DATABASE_URL_MAINNET`                                                                                      | For mainnet            | Postgres connection string for **Arc Mainnet** data (separate database, same schema). Unset = mainnet API answers `503 NETWORK_UNAVAILABLE` |
 | `SIGN_KEY_SECRET`                                                                                           | ✅                     | 64 hex characters, `openssl rand -hex 32`, **back it up**                                        |
 | `AUTH_SECRET`                                                                                               | ✅                     | 32+ characters, `openssl rand -hex 32`                                                           |
 | `APP_DOMAIN`                                                                                                | Required in production | Site domain (used to validate wallet sign-in), defaults to `localhost:3000`                      |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`                                                                      | Recommended            | WalletConnect project ID; without it, mobile wallet QR connection is unavailable                 |
-| `NEXT_PUBLIC_CHAIN_ID` / `NEXT_PUBLIC_RPC_URL` / `NEXT_PUBLIC_EXPLORER_URL` / `NEXT_PUBLIC_FACTORY_ADDRESS` | No                     | Chain config shared by frontend and backend, defaults to Arc Testnet. **Rebuild after changing** |
-| `MERKLE_IMPL` / `SIGN_IMPL` / `VESTING_IMPL`                                                                | No                     | Implementation addresses (the server uses them to recognise projects), default to Arc Testnet    |
-| `RPC_URL`                                                                                                   | No                     | Private server-side RPC                                                                          |
+| `NEXT_PUBLIC_CHAIN_ID` / `NEXT_PUBLIC_RPC_URL` / `NEXT_PUBLIC_EXPLORER_URL` / `NEXT_PUBLIC_FACTORY_ADDRESS` | No                     | Override the **testnet** entry of `src/config/networks.ts` (e.g. point it at local anvil). **Rebuild after changing** |
+| `NEXT_PUBLIC_MAINNET_RPC_URL` / `NEXT_PUBLIC_MAINNET_EXPLORER_URL` / `NEXT_PUBLIC_MAINNET_FACTORY_ADDRESS` / `NEXT_PUBLIC_MAINNET_TEST_TOKEN_FACTORY` | No | Override the **mainnet** entry. No factory address = mainnet shows "coming soon"; no test token factory = test tokens hidden on mainnet |
+| `MERKLE_IMPL` / `SIGN_IMPL` / `VESTING_IMPL`, `MAINNET_MERKLE_IMPL` / `MAINNET_SIGN_IMPL` / `MAINNET_VESTING_IMPL` | No             | Override the implementation addresses (the server uses them to recognise projects); defaults in `src/config/networks.ts` |
+| `RPC_URL` / `MAINNET_RPC_URL`                                                                               | No                     | Private server-side RPC per network                                                              |
 | `SIGN_TTL_SECONDS`                                                                                          | No                     | Signature validity, default 1800                                                                 |
 | `NEXT_PUBLIC_TEST_TOKEN_FACTORY`                                                                            | No                     | TestTokenFactory address (written by `deploy.sh`). Empty = the test token feature is hidden      |
 | `NEXT_PUBLIC_MOCK_WALLET`                                                                                   | Testing only           | `1` = auto-connect an anvil test account as the wallet (only when the chain id is 31337)         |
@@ -307,7 +354,8 @@ cd web
 cp .env.example .env.local      # fill in the three secrets and the database
 createdb tokendis               # or any Postgres
 bun install
-bun run db:migrate              # create tables (after changing schema.ts, run bun run db:generate first)
+bun run db:migrate              # create tables in DATABASE_URL (testnet) (after changing schema.ts, run bun run db:generate first)
+bun run db:migrate:mainnet      # same for DATABASE_URL_MAINNET (once you set it up)
 bun run dev                     # http://localhost:3000
 ```
 
@@ -331,15 +379,51 @@ cd web && NEXT_PUBLIC_CHAIN_ID=31337 NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545 N
   NEXT_PUBLIC_FACTORY_ADDRESS=0x... NEXT_PUBLIC_TEST_TOKEN_FACTORY=0x... \
   MERKLE_IMPL=0x... SIGN_IMPL=0x... VESTING_IMPL=0x... bun run dev
 # terminal 4
-cd web && E2E_FACTORY=0x... E2E_TOKEN=0x... bun run e2e     # API test (41 checks)
+cd web && E2E_FACTORY=0x... E2E_TOKEN=0x... bun run e2e     # API test (41 checks); E2E_NETWORK=mainnet tests the mainnet backend
 cd web && bun run test                                      # unit tests (wallet network logic)
 cd web && bun run e2e:ui                                    # browser test (18 checks; mints its own test token; screenshots in web/e2e-shots/)
 ```
 
 Tip: to run the tests while your normal `bun run dev` keeps running on port 3000, start the test server with `NEXT_DIST_DIR=.next-e2e` on another port (e.g. `-p 3100`, plus `APP_DOMAIN=localhost:3100`) and run the tests with `E2E_API=http://localhost:3100`.
 
+To test both networks side by side: run a second anvil with `--chain-id 5042` (stands in for Arc Mainnet), deploy the contracts on it too, give the test server `DATABASE_URL_MAINNET`, `NEXT_PUBLIC_MAINNET_RPC_URL`, `NEXT_PUBLIC_MAINNET_FACTORY_ADDRESS` and `MAINNET_*_IMPL`, then run `bun run e2e` once normally and once with `E2E_NETWORK=mainnet E2E_RPC=<second anvil>`. The two databases must end up with independent data.
+
 In mock wallet mode the site auto-connects anvil account 0. To use another test account, run this in the browser console and reload:
 `localStorage.setItem('mockAccount', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8')`
+
+---
+
+## Deploying the website (Vercel)
+
+Live: **https://tokenshoe.vercel.app** (Vercel project `tokenshoe`, team `levenston's projects`; database: Neon Postgres `tokenshoe-db`, region iad1, provisioned through the Vercel Marketplace).
+
+```bash
+cd web
+vercel deploy --prod          # build & deploy to production (the project is already linked via web/.vercel)
+vercel deploy                 # preview deployment
+```
+
+Environment variables on Vercel:
+- `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `PG*`, `POSTGRES_*` — injected automatically by the Neon integration; this is the **Arc Testnet** database (`neondb`).
+- `DATABASE_URL_MAINNET` — the **Arc Mainnet** database: a second database `tokenshoe_mainnet` on the same Neon instance (same host and user, different database, so the data is fully separate).
+- `SIGN_KEY_SECRET`, `AUTH_SECRET` — generated for production (separate from local). A backup copy is in `~/.tokenshoe/prod-secrets.env` on the deploying machine; **keep it safe** — losing `SIGN_KEY_SECRET` makes stored signer keys undecryptable.
+- Chain / contract addresses come from `web/src/config/networks.ts`; `NEXT_PUBLIC_*` overrides require a redeploy.
+- Wallet sign-in accepts the deployment's own domains automatically (`VERCEL_URL`, branch URL, production URL); add custom domains to `APP_DOMAIN` (comma-separated).
+- Optional: `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` to enable mobile wallets.
+
+Database migrations against Neon (run both after a schema change):
+
+```bash
+vercel env pull /tmp/prod.env --environment production   # never into .env.local
+DATABASE_URL=<DATABASE_URL_UNPOOLED from that file> bun run db:migrate:neon                     # testnet db (neondb)
+DATABASE_URL=<same URL with the database name changed to tokenshoe_mainnet> bun run db:migrate:neon  # mainnet db
+```
+
+`db:migrate:neon` runs over HTTPS (port 443), which works even when a local proxy blocks Postgres port 5432; `bun run db:migrate` (drizzle-kit, port 5432) also works where 5432 is reachable. Both record progress in the same migrations table.
+
+Vercel limits the code is tuned for (Hobby plan): functions run at most 60s, request bodies at most 4.5MB (CSV uploads capped at 4MB), small DB pool per instance.
+
+If you later connect the GitHub repo for automatic deploys, set the project's **Root Directory** to `web` in Vercel settings (CLI deploys from `web/` don't need it).
 
 ---
 
@@ -352,3 +436,4 @@ In mock wallet mode the site auto-connects anvil account 0. To use another test 
 5. Frontend dependency note: `next.config.mjs` stubs out `@coinbase/cdp-sdk`. ConnectKit pulls in the Base Account connector, whose dependencies are missing optional packages and break the build; we don't use Base Account, so nothing is affected. Try removing the stub when upgrading ConnectKit/wagmi.
 6. The UI doesn't yet support transferring project ownership (the contract has `transferCreator`/`acceptCreator` and the backend syncs it; only the button is missing).
 7. WalletConnect (mobile wallets) requires `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`.
+8. `drizzle-orm` must stay in `serverComponentsExternalPackages` (`web/next.config.mjs`). When it was bundled, drizzle's `instanceof pg.Pool` check failed and `db.transaction()` ran each statement on a random pooled connection, so transactions and advisory locks were silently ineffective.

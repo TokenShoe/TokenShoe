@@ -15,8 +15,8 @@ export const dynamic = 'force-dynamic'
 
 export const GET = route('stats.platform', async () => {
   const [[row], [{ totalRecipients }]] = await Promise.all([
-    db.select().from(platformStats),
-    db.select({ totalRecipients: sql<number>`coalesce(sum(${projectStats.recipients}), 0)::int` }).from(projectStats),
+    db().select().from(platformStats),
+    db().select({ totalRecipients: sql<number>`coalesce(sum(${projectStats.recipients}), 0)::int` }).from(projectStats),
   ])
   const base = row ?? {
     totalProjects: 0, totalMerkle: 0, totalSign: 0, totalVesting: 0,

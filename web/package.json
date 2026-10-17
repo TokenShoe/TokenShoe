@@ -8,13 +8,15 @@
     "start": "next start -p 3000",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:mainnet": "DRIZZLE_NETWORK=mainnet drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "e2e": "bun scripts/e2e.ts",
     "typecheck": "tsc --noEmit",
     "e2e:ui": "bun scripts/ui-e2e.ts",
     "test": "bun test src",
-    "dev:webpack": "next dev -p 3000"
+    "dev:webpack": "next dev -p 3000",
+    "db:migrate:neon": "bun scripts/migrate-neon-http.ts"
   },
   "dependencies": {
     "@openzeppelin/merkle-tree": "^1.0.7",
@@ -37,6 +39,7 @@
     "zod": "3"
   },
   "devDependencies": {
+    "@neondatabase/serverless": "0.10.4",
     "@types/bun": "1.1.14",
     "@types/node": "^22.5.4",
     "@types/pg": "^8.11.10",

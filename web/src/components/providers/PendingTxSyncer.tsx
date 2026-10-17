@@ -1,6 +1,6 @@
 'use client'
 /**
- * On page load and every minute, resubmit transactions that previously failed to sync.
+ * On page load and every minute, resubmit transactions that previously failed to sync (each to the network it was sent on).
  */
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,7 +17,7 @@ export function PendingTxSyncer() {
       try {
         for (const tx of listPending()) {
           try {
-            await syncTx(tx.hash, { meta: tx.meta })
+            await syncTx(tx.hash, { meta: tx.meta }, tx.network ?? 'testnet')
             removePending(tx.hash)
             await queryClient.invalidateQueries()
           } catch (e) {

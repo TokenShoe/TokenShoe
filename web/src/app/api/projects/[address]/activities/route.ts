@@ -16,9 +16,9 @@ export const GET = route<{ params: { address: string } }>('projects.activities',
   const q = parseQuery(req, Query)
   const where = eq(projectActivities.projectAddress, address)
   const [items, [{ total }]] = await Promise.all([
-    db.select().from(projectActivities).where(where).orderBy(desc(projectActivities.at), desc(projectActivities.id))
+    db().select().from(projectActivities).where(where).orderBy(desc(projectActivities.at), desc(projectActivities.id))
       .limit(q.pageSize).offset((q.page - 1) * q.pageSize),
-    db.select({ total: sql<number>`count(*)::int` }).from(projectActivities).where(where),
+    db().select({ total: sql<number>`count(*)::int` }).from(projectActivities).where(where),
   ])
   return json({ items, total, page: q.page, pageSize: q.pageSize })
 })

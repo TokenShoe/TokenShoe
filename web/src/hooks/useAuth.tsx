@@ -10,7 +10,7 @@ import { useAccount, useSignMessage } from 'wagmi'
 import { createSiweMessage } from 'viem/siwe'
 import { getAddress } from 'viem'
 import { api } from '@/lib/client/api'
-import { appChain } from '@/config/chain'
+import { useNetwork } from '@/hooks/useNetwork'
 
 interface AuthState {
   /** Currently signed-in address (lowercase); counts as signed in only when it matches the wallet address */
@@ -25,6 +25,7 @@ const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { address } = useAccount()
+  const { network } = useNetwork()
   const { signMessageAsync } = useSignMessage()
   const [session, setSession] = useState<string | null>(null)
   const [signingIn, setSigningIn] = useState(false)
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { nonce } = await api<{ nonce: string }>('/api/auth/nonce')
       const message = createSiweMessage({
         address: getAddress(address),
-        chainId: appChain.id,
+        chainId: network.chain.id,
         domain: window.location.host,
         uri: window.location.origin,
         nonce,
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setSigningIn(false)
     }
-  }, [address, session, signMessageAsync])
+  }, [address, session, signMessageAsync, network.chain.id])
 
   const signOut = useCallback(async () => {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => {})

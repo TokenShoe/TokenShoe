@@ -28,14 +28,14 @@ export const GET = route('projects.list', async (req) => {
   const where = conds.length ? and(...conds) : undefined
 
   const [rows, [{ total }]] = await Promise.all([
-    db.select({ project: projects, stats: projectStats })
+    db().select({ project: projects, stats: projectStats })
       .from(projects)
       .leftJoin(projectStats, eq(projects.address, projectStats.projectAddress))
       .where(where)
       .orderBy(desc(projects.createdAt))
       .limit(q.pageSize)
       .offset((q.page - 1) * q.pageSize),
-    db.select({ total: sql<number>`count(*)::int` }).from(projects).where(where),
+    db().select({ total: sql<number>`count(*)::int` }).from(projects).where(where),
   ])
 
   return json({ items: rows.map((r) => projectView(r.project, r.stats)), total, page: q.page, pageSize: q.pageSize })

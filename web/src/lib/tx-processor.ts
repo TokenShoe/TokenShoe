@@ -23,7 +23,7 @@ import {
   signSigners, vestingSchedules, merkleTrees, IMPL_TYPE_TO_PROJECT_TYPE, type ProjectType,
 } from '@/db/schema'
 import { FACTORY_ABI, PROJECT_EVENTS_ABI, AIRDROP_READ_ABI, VESTING_READ_ABI } from './abis'
-import { publicClient, CONTRACTS, readTokenInfo, detectCloneImpl } from './chain'
+import { publicClient, contracts, readTokenInfo, detectCloneImpl } from './chain'
 import { ApiError } from './http'
 import { log } from './logger'
 import { encryptPrivKey } from './crypto'
@@ -95,7 +95,7 @@ export async function processTx(txHash: Hex, opts: ProcessTxOptions = {}): Promi
   const warnings: ProcessTxResult['warnings'] = []
 
   // 0. Already processed -> return immediately (idempotent)
-  const [done] = await db.select().from(processedTxs).where(eq(processedTxs.txHash, hash))
+  const [done] = await db().select().from(processedTxs).where(eq(processedTxs.txHash, hash))
   if (done) {
     return { status: 'already_processed', txHash: hash, blockNumber: done.blockNumber, events: [], projectsCreated: [], warnings }
   }
@@ -103,14 +103,14 @@ export async function processTx(txHash: Hex, opts: ProcessTxOptions = {}): Promi
   // 1. Fetch the receipt (the frontend may call right after sending, so wait up to 60 seconds)
   const receipt = await getReceipt(hash)
   if (receipt.status !== 'success') throw new ApiError(400, 'TX_REVERTED', 'Transaction reverted, nothing to sync')
-  const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber })
+  const block = await publicClient().getBlock({ blockNumber: receipt.blockNumber })
   const at = new Date(Number(block.timestamp) * 1000)
   const blockTs = Number(block.timestamp)
 
   // 2a. Factory events: projects created in this transaction
   const newProjects: NewProjectInfo[] = []
   for (const l of receipt.logs) {
-    if (lower(l.address) !== CONTRACTS.factory || l.topics[0]?.toLowerCase() !== PROJECT_CREATED_TOPIC) continue
+    if (lower(l.address) !== contracts().factory || l.topics[0]?.toLowerCase() !== PROJECT_CREATED_TOPIC) continue
     const ev = decodeEventLog({ abi: FACTORY_ABI, data: l.data, topics: l.topics })
     const type = IMPL_TYPE_TO_PROJECT_TYPE[ev.args.implType]
     if (!type) {
@@ -125,7 +125,7 @@ export async function processTx(txHash: Hex, opts: ProcessTxOptions = {}): Promi
   const candidateLogs = receipt.logs.filter((l) => PROJECT_TOPICS.has(l.topics[0]?.toLowerCase() ?? ''))
   const emitters = [...new Set(candidateLogs.map((l) => lower(l.address)))].filter((a) => !newSet.has(a))
   const known = emitters.length
-    ? await db.select({ address: projects.address, type: projects.type }).from(projects).where(inArray(projects.address, emitters))
+    ? await db().select({ address: projects.address, type: projects.type }).from(projects).where(inArray(projects.address, emitters))
     : []
   const typeOf = new Map<Address, ProjectType>([
     ...newProjects.map((p) => [p.address, p.type] as const),
@@ -176,7 +176,7 @@ export async function processTx(txHash: Hex, opts: ProcessTxOptions = {}): Promi
 
   // 4. Write everything in one transaction
   const events: ProcessTxResult['events'] = []
-  const outcome = await db.transaction(async (tx) => {
+  const outcome = await db().transaction(async (tx) => {
     const inserted = await tx.insert(processedTxs).values({
       txHash: hash,
       blockNumber: Number(receipt.blockNumber),
@@ -229,7 +229,8 @@ export async function processTx(txHash: Hex, opts: ProcessTxOptions = {}): Promi
 
 async function getReceipt(hash: Hex): Promise<TransactionReceipt> {
   try {
-    return await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
+    // Stay well under the 60s function limit; the frontend retries if the tx isn't mined yet
+    return await publicClient().waitForTransactionReceipt({ hash, timeout: 40_000 })
   } catch (e) {
     if (e instanceof TransactionReceiptNotFoundError || e instanceof WaitForTransactionReceiptTimeoutError) {
       throw new ApiError(404, 'TX_NOT_FOUND', 'Transaction not found on-chain (it may not be mined yet, try again shortly)')
@@ -249,7 +250,7 @@ function safeDecode(l: Log): ProjectEvent | null {
 /** Read a new project's parameters (time window, root, signer) and token info */
 async function readNewProject(address: Address, type: ProjectType, creator: Address, token: Address, logIndex: number): Promise<NewProjectInfo> {
   const read = <T>(functionName: 'startTime' | 'endTime' | 'merkleRoot' | 'signer') =>
-    publicClient.readContract({ address, abi: AIRDROP_READ_ABI, functionName }) as Promise<T>
+    publicClient().readContract({ address, abi: AIRDROP_READ_ABI, functionName }) as Promise<T>
 
   const [tokenInfo, startTime, endTime, merkleRoot, signer] = await Promise.all([
     readTokenInfo(token),
@@ -268,7 +269,7 @@ async function readNewProject(address: Address, type: ProjectType, creator: Addr
 }
 
 async function readSchedule(project: Address, id: bigint) {
-  return publicClient.readContract({ address: project, abi: VESTING_READ_ABI, functionName: 'getSchedule', args: [id] })
+  return publicClient().readContract({ address: project, abi: VESTING_READ_ABI, functionName: 'getSchedule', args: [id] })
 }
 
 /**
@@ -286,8 +287,8 @@ export async function checkSignerKey(privateKey: Hex, expectedSigner: Address): 
 
 export async function checkFreshAccount(addr: Address): Promise<{ fresh: true } | { fresh: false; reason: string }> {
   const [nonce, balance] = await Promise.all([
-    publicClient.getTransactionCount({ address: addr }),
-    publicClient.getBalance({ address: addr }),
+    publicClient().getTransactionCount({ address: addr }),
+    publicClient().getBalance({ address: addr }),
   ])
   if (nonce > 0) return { fresh: false, reason: `Signer account ${addr} has already sent ${nonce} transaction(s). Use a brand-new account` }
   if (balance > 0n) return { fresh: false, reason: `Signer account ${addr} holds funds. Use a brand-new empty account` }

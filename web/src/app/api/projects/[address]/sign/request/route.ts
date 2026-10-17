@@ -47,13 +47,13 @@ export const POST = route<{ params: { address: string } }>('sign.request', async
     throw new ApiError(400, 'NOT_IN_WINDOW', msg)
   }
 
-  const [alloc] = await db.select().from(signAllocations)
+  const [alloc] = await db().select().from(signAllocations)
     .where(and(eq(signAllocations.projectAddress, projectAddress), eq(signAllocations.account, account)))
   if (!alloc || BigInt(alloc.amount) === 0n) throw new ApiError(403, 'NOT_ELIGIBLE', 'This address is not on the airdrop list')
   const claimable = BigInt(alloc.amount) - BigInt(alloc.claimed)
   if (claimable <= 0n) throw new ApiError(409, 'NOTHING_TO_CLAIM', 'Everything has already been claimed')
 
-  const [signer] = await db.select().from(signSigners).where(eq(signSigners.projectAddress, projectAddress))
+  const [signer] = await db().select().from(signSigners).where(eq(signSigners.projectAddress, projectAddress))
   if (!signer || signer.signerAddress !== project.signerAddress) {
     throw new ApiError(503, 'SIGNER_NOT_READY', 'The project has not configured its signer key yet, claiming is unavailable')
   }
@@ -61,7 +61,7 @@ export const POST = route<{ params: { address: string } }>('sign.request', async
   const claimId = computeClaimId(projectAddress, account, alloc.claimNonce)
 
   // This claimId is already used on-chain: the previous claim succeeded but was not synced - don't sign again or the books won't balance
-  const used = await publicClient.readContract({
+  const used = await publicClient().readContract({
     address: projectAddress, abi: AIRDROP_READ_ABI, functionName: 'usedClaimIds', args: [claimId],
   })
   if (used) {
@@ -71,7 +71,7 @@ export const POST = route<{ params: { address: string } }>('sign.request', async
   const now = Math.floor(Date.now() / 1000)
 
   // Reuse a still-valid signature for the same amount
-  const [existing] = await db.select().from(signIssuances)
+  const [existing] = await db().select().from(signIssuances)
     .where(and(
       eq(signIssuances.projectAddress, projectAddress),
       eq(signIssuances.claimId, claimId),
@@ -94,7 +94,7 @@ export const POST = route<{ params: { address: string } }>('sign.request', async
     claimId,
     deadline: BigInt(deadline),
   })
-  await db.insert(signIssuances).values({
+  await db().insert(signIssuances).values({
     projectAddress, account, claimId, nonce: alloc.claimNonce, amount: claimable.toString(), deadline, signature,
   })
 

@@ -34,7 +34,7 @@ export async function eligibilityFor(account: string, onlyProject?: string): Pro
   const items: EligibilityItem[] = []
 
   // ── Merkle: list entries -> projects pointing at that root; claimed = this index exists in the claims table
-  const merkleRows = await db
+  const merkleRows = await db()
     .select({ project: projects, index: merkleEntries.index, amount: merkleEntries.amount, claimTx: claims.txHash })
     .from(merkleEntries)
     .innerJoin(projects, and(eq(projects.merkleRoot, merkleEntries.root), eq(projects.type, 'merkle'), projectFilter))
@@ -53,7 +53,7 @@ export async function eligibilityFor(account: string, onlyProject?: string): Pro
   }
 
   // ── Sign: allocation - claimed
-  const signRows = await db
+  const signRows = await db()
     .select({ project: projects, alloc: signAllocations })
     .from(signAllocations)
     .innerJoin(projects, and(eq(projects.address, signAllocations.projectAddress), projectFilter))
@@ -70,11 +70,11 @@ export async function eligibilityFor(account: string, onlyProject?: string): Pro
   }
 
   // ── Vesting: group by project and compute what is claimable now for each schedule
-  const vestRows = await db.select().from(vestingSchedules)
+  const vestRows = await db().select().from(vestingSchedules)
     .where(and(eq(vestingSchedules.beneficiary, account), onlyProject ? eq(vestingSchedules.projectAddress, onlyProject) : undefined))
   if (vestRows.length > 0) {
     const addrs = [...new Set(vestRows.map((s) => s.projectAddress))]
-    const projRows = await db.select().from(projects).where(inArray(projects.address, addrs))
+    const projRows = await db().select().from(projects).where(inArray(projects.address, addrs))
     const byAddr = new Map<string, Project>(projRows.map((p) => [p.address, p]))
     for (const addr of addrs) {
       const p = byAddr.get(addr)

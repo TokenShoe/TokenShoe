@@ -1,7 +1,8 @@
 /** Small project components: type badge, status badge, address link, token amount */
 import { ExternalLink } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
-import { explorerAddress, explorerTx, type ProjectKind } from '@/config/chain'
+import type { ProjectKind } from '@/config/networks'
+import { useNetwork } from '@/hooks/useNetwork'
 import { formatToken, shortAddr } from '@/lib/client/format'
 import type { ProjectStatus } from '@/lib/client/types'
 
@@ -27,6 +28,7 @@ export function StatusBadge({ status }: { status: ProjectStatus }) {
 }
 
 export function AddressLink({ address, full, tx }: { address: string; full?: boolean; tx?: boolean }) {
+  const { explorerAddress, explorerTx } = useNetwork()
   return (
     <a
       href={tx ? explorerTx(address) : explorerAddress(address)}

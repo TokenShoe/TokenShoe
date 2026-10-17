@@ -15,8 +15,9 @@ import { isAddress, parseUnits } from 'viem'
 import { ApiError, zAddress } from './http'
 import { readTokenInfo } from './chain'
 
-export const MAX_CSV_BYTES = 10 * 1024 * 1024
-export const MAX_ROWS = 200_000
+// Vercel rejects request bodies over 4.5MB, so keep uploads below that (≈100k rows of address,amount)
+export const MAX_CSV_BYTES = 4 * 1024 * 1024
+export const MAX_ROWS = 100_000
 
 export interface CsvRow {
   line: number            // line number in the original file (1-based), for error messages
@@ -47,7 +48,7 @@ export function parseAmount(raw: string, decimals: number, unit: AmountUnit): bi
 /** Read the uploaded file as text (with a size limit) */
 export async function readCsvFile(file: File | null): Promise<string> {
   if (!file || typeof file === 'string') throw new ApiError(400, 'FILE_REQUIRED', 'Please upload a CSV file (form field "file")')
-  if (file.size > MAX_CSV_BYTES) throw new ApiError(400, 'FILE_TOO_LARGE', 'CSV file must be 10MB or smaller')
+  if (file.size > MAX_CSV_BYTES) throw new ApiError(400, 'FILE_TOO_LARGE', 'CSV file must be 4MB or smaller (about 100,000 rows)')
   // Strip the BOM that Excel exports often include
   return (await file.text()).replace(/^﻿/, '')
 }

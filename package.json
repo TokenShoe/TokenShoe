@@ -9,6 +9,7 @@
     "test": "cd web && bun run test",
     "typecheck": "cd web && bun run typecheck",
     "db:migrate": "cd web && bun run db:migrate",
+    "db:migrate:mainnet": "cd web && bun run db:migrate:mainnet",
     "db:generate": "cd web && bun run db:generate",
     "db:studio": "cd web && bun run db:studio",
     "e2e": "cd web && bun run e2e",

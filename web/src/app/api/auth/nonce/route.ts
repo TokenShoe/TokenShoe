@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic'
 
 export const GET = route('auth.nonce', async () => {
   const nonce = generateSiweNonce()
-  await db.insert(authNonces).values({ nonce })
+  await db().insert(authNonces).values({ nonce })
   // Also clean up nonces older than 1 day
-  await db.delete(authNonces).where(lt(authNonces.createdAt, new Date(Date.now() - 86400_000)))
+  await db().delete(authNonces).where(lt(authNonces.createdAt, new Date(Date.now() - 86400_000)))
   return json({ nonce })
 })

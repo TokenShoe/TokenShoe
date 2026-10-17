@@ -22,11 +22,11 @@ export const GET = route<{ params: { address: string } }>('merkle.proof', async 
   if (project.type !== 'merkle') throw new ApiError(400, 'WRONG_TYPE', 'This project is not a Merkle airdrop')
   if (!project.merkleRoot) throw new ApiError(404, 'NO_ROOT', 'This project has no recipient list')
 
-  const [entry] = await db.select().from(merkleEntries)
+  const [entry] = await db().select().from(merkleEntries)
     .where(and(eq(merkleEntries.root, project.merkleRoot), eq(merkleEntries.account, account)))
   if (!entry) throw new ApiError(404, 'NOT_ELIGIBLE', 'This address is not on the airdrop list')
 
-  const [claim] = await db.select({ txHash: claims.txHash }).from(claims)
+  const [claim] = await db().select({ txHash: claims.txHash }).from(claims)
     .where(and(eq(claims.projectAddress, address), eq(claims.claimKey, String(entry.index))))
   return json({
     index: entry.index,

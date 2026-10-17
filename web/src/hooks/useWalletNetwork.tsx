@@ -2,13 +2,13 @@
 /**
  * Wallet network health, shared by the banner and the transaction flow.
  *
- * - When a wallet connects (and is on our chain), silently probe its RPC.
+ * - When a wallet connects (and is on the selected network's chain), silently probe its RPC.
  * - If the probe fails, suggest our RPC once per address per session (the wallet shows an approval prompt).
  * - If it still fails, <WalletNetworkBanner/> explains how to fix it and offers a retry button.
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useAccount } from 'wagmi'
-import { appChain } from '@/config/chain'
+import { useNetwork } from '@/hooks/useNetwork'
 import { ensureWalletNetwork, probeWallet, type Eip1193, type WalletNetworkState } from '@/lib/client/walletNetwork'
 
 interface Ctx {
@@ -23,6 +23,7 @@ const WalletNetworkContext = createContext<Ctx | null>(null)
 
 export function WalletNetworkProvider({ children }: { children: React.ReactNode }) {
   const { status, connector, chainId, address } = useAccount()
+  const appChain = useNetwork().network.chain
   const [state, setState] = useState<WalletNetworkState | null>(null)
   const [fixing, setFixing] = useState(false)
   const autoTried = useRef(new Set<string>())
@@ -34,13 +35,13 @@ export function WalletNetworkProvider({ children }: { children: React.ReactNode 
     if (!provider) return null
     setFixing(true)
     try {
-      const result = await ensureWalletNetwork(provider)
+      const result = await ensureWalletNetwork(provider, appChain)
       setState(result === 'wrong-chain' ? null : result)
       return result
     } finally {
       setFixing(false)
     }
-  }, [getProvider])
+  }, [getProvider, appChain])
 
   // Check on connect / account change / chain change
   useEffect(() => {
@@ -52,7 +53,7 @@ export function WalletNetworkProvider({ children }: { children: React.ReactNode 
     ;(async () => {
       const provider = await getProvider()
       if (!provider || cancelled) return
-      const result = await probeWallet(provider)
+      const result = await probeWallet(provider, appChain)
       if (cancelled) return
       setState(result === 'wrong-chain' ? null : result)
       // Broken RPC: suggest ours automatically, but only once per address per session
@@ -63,7 +64,7 @@ export function WalletNetworkProvider({ children }: { children: React.ReactNode 
       }
     })()
     return () => { cancelled = true }
-  }, [status, chainId, address, getProvider, fix])
+  }, [status, chainId, address, getProvider, fix, appChain])
 
   return <WalletNetworkContext.Provider value={{ state, fixing, fix }}>{children}</WalletNetworkContext.Provider>
 }

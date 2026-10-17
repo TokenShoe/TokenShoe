@@ -30,7 +30,8 @@ import { api } from '@/lib/client/api'
 import { errorMessage } from '@/lib/client/errors'
 import { formatDateTime, formatToken, localInputToUnix, parseTokenInput, shortAddr, unixToLocalInput } from '@/lib/client/format'
 import { ERC20_FULL_ABI, FACTORY_WRITE_ABI } from '@/lib/abis'
-import { appChain, FACTORY_ADDRESS, IMPL_TYPE, type ProjectKind } from '@/config/chain'
+import { IMPL_TYPE, type ProjectKind } from '@/config/networks'
+import { useNetwork } from '@/hooks/useNetwork'
 import { TokenStep } from './TokenStep'
 import { DistributionStep, emptyVestingRow } from './DistributionStep'
 import type { TokenInfo, WizardState } from './types'
@@ -59,8 +60,12 @@ function initialState(): WizardState {
 type DeployStep = 'approve' | 'create' | 'list'
 type StepState = 'todo' | 'running' | 'done' | 'skipped'
 
+/** Only rendered when TokenShoe is deployed on the selected network (see RequireDeployed in app/create/page.tsx) */
 export default function CreateWizard() {
   const { address, isConnected } = useAccount()
+  const { network } = useNetwork()
+  const appChain = network.chain
+  const factory = network.factory!
   const { send } = useChainTx()
   const { ensureSignedIn } = useAuth()
   const [step, setStep] = useState(0)
@@ -93,15 +98,15 @@ export default function CreateWizard() {
     : null
 
   const impl = useReadContract({
-    address: FACTORY_ADDRESS, abi: FACTORY_WRITE_ABI, functionName: 'implementations', args: [IMPL_TYPE[s.type]], chainId: appChain.id,
+    address: factory, abi: FACTORY_WRITE_ABI, functionName: 'implementations', args: [IMPL_TYPE[s.type]], chainId: appChain.id,
   })
   const predicted = useReadContract({
-    address: FACTORY_ADDRESS, abi: FACTORY_WRITE_ABI, functionName: 'predictAddress',
+    address: factory, abi: FACTORY_WRITE_ABI, functionName: 'predictAddress',
     args: [IMPL_TYPE[s.type], address ?? zeroAddress, salt], chainId: appChain.id,
     query: { enabled: !!address && impl.data !== undefined && impl.data !== zeroAddress },
   })
   const allowance = useReadContract({
-    address: tokenAddr, abi: ERC20_FULL_ABI, functionName: 'allowance', args: [address ?? zeroAddress, FACTORY_ADDRESS], chainId: appChain.id,
+    address: tokenAddr, abi: ERC20_FULL_ABI, functionName: 'allowance', args: [address ?? zeroAddress, factory], chainId: appChain.id,
     query: { enabled: !!tokenAddr && !!address },
   })
 
@@ -154,7 +159,7 @@ export default function CreateWizard() {
       // 1. approve (skipped if the allowance is enough)
       if ((allowance.data ?? 0n) < amount) {
         setProgress((p) => ({ ...p, approve: 'running' }))
-        await send({ label: `Approve ${token.symbol}`, request: { address: tokenAddr, abi: ERC20_FULL_ABI, functionName: 'approve', args: [FACTORY_ADDRESS, amount] }, sync: false })
+        await send({ label: `Approve ${token.symbol}`, request: { address: tokenAddr, abi: ERC20_FULL_ABI, functionName: 'approve', args: [factory, amount] }, sync: false })
         await allowance.refetch()
       }
       setProgress((p) => ({ ...p, approve: 'done' }))
@@ -170,7 +175,7 @@ export default function CreateWizard() {
       }
       const { sync } = await send({
         label: 'Create project',
-        request: { address: FACTORY_ADDRESS, abi: FACTORY_WRITE_ABI, functionName: 'createProject', args: [IMPL_TYPE[s.type], tokenAddr, amount, salt, buildInitData()] },
+        request: { address: factory, abi: FACTORY_WRITE_ABI, functionName: 'createProject', args: [IMPL_TYPE[s.type], tokenAddr, amount, salt, buildInitData()] },
         sync: { meta, signerPrivateKey: s.type === 'sign' ? s.signerKey : undefined },
       })
       const projectAddr = sync?.projectsCreated[0] ?? (predicted.data as string | undefined)?.toLowerCase() ?? null

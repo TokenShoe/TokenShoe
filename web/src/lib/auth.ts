@@ -64,7 +64,7 @@ export async function requireCreator(req: NextRequest, projectAddress: string): 
 }
 
 export async function getProjectOr404(projectAddress: string): Promise<Project> {
-  const [project] = await db.select().from(projects).where(eq(projects.address, projectAddress.toLowerCase()))
+  const [project] = await db().select().from(projects).where(eq(projects.address, projectAddress.toLowerCase()))
   if (!project) throw new ApiError(404, 'PROJECT_NOT_FOUND', 'Project not found (if you just created it, sync the creation transaction first)')
   return project
 }

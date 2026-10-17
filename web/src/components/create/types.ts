@@ -1,5 +1,5 @@
 /** Form state of the create wizard */
-import type { ProjectKind } from '@/config/chain'
+import type { ProjectKind } from '@/config/networks'
 
 export interface MerkleBuild { root: `0x${string}`; totalEntries: number; totalAmount: string; decimals: number; preview: { index: number; account: string; amount: string }[] }
 export interface VestingBuild { totalAmount: string; initData: `0x${string}`; count: number }

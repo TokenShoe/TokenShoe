@@ -17,7 +17,7 @@ import { zProjectMeta } from '@/lib/http'
 import { normalizePrivateKey } from '@/lib/sign'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 90
+export const maxDuration = 60 // Vercel Hobby caps functions at 60s
 
 const Body = z.object({
   txHash: zTxHash,

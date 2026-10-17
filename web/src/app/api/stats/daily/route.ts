@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 export const GET = route('stats.daily', async (req) => {
   const { days } = parseQuery(req, z.object({ days: z.coerce.number().int().min(1).max(365).default(30) }))
   const from = new Date(Date.now() - (days - 1) * 86400_000)
-  const rows = await db.select().from(dailyStats).where(gte(dailyStats.day, utcDay(from)))
+  const rows = await db().select().from(dailyStats).where(gte(dailyStats.day, utcDay(from)))
   const byDay = new Map(rows.map((r) => [r.day, r]))
   const items = Array.from({ length: days }, (_, i) => {
     const day = utcDay(new Date(from.getTime() + i * 86400_000))

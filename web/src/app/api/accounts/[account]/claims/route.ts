@@ -14,7 +14,7 @@ export const GET = route<{ params: { account: string } }>('accounts.claims', asy
   const q = parseQuery(req, z.object({ ...zPage }))
   const where = eq(claims.account, account)
   const [items, [{ total }]] = await Promise.all([
-    db.select({
+    db().select({
       claim: claims,
       projectName: projects.name,
       tokenAddress: projects.tokenAddress,
@@ -23,7 +23,7 @@ export const GET = route<{ params: { account: string } }>('accounts.claims', asy
     }).from(claims).innerJoin(projects, eq(projects.address, claims.projectAddress))
       .where(where).orderBy(desc(claims.claimedAt), desc(claims.id))
       .limit(q.pageSize).offset((q.page - 1) * q.pageSize),
-    db.select({ total: sql<number>`count(*)::int` }).from(claims).where(where),
+    db().select({ total: sql<number>`count(*)::int` }).from(claims).where(where),
   ])
   return json({
     items: items.map(({ claim, ...p }) => ({ ...claim, project: p })),

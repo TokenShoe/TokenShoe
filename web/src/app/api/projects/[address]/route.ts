@@ -18,9 +18,9 @@ export const GET = route<Ctx>('projects.get', async (_req, { params }) => {
   const address = zAddress.parse(params.address)
   const project = await getProjectOr404(address)
   const [[stats], [signer]] = await Promise.all([
-    db.select().from(projectStats).where(eq(projectStats.projectAddress, address)),
+    db().select().from(projectStats).where(eq(projectStats.projectAddress, address)),
     project.type === 'sign'
-      ? db.select({ signerAddress: signSigners.signerAddress }).from(signSigners).where(eq(signSigners.projectAddress, address))
+      ? db().select({ signerAddress: signSigners.signerAddress }).from(signSigners).where(eq(signSigners.projectAddress, address))
       : Promise.resolve([]),
   ])
   return json({
@@ -36,6 +36,6 @@ export const PATCH = route<Ctx>('projects.patch', async (req, { params }) => {
   const meta = await parseBody(req, zProjectMeta)
   if (Object.keys(meta).length === 0) throw new ApiError(400, 'NOTHING_TO_UPDATE', 'Nothing to update')
   if (meta.name !== undefined && !meta.name) throw new ApiError(400, 'NAME_REQUIRED', 'Project name cannot be empty')
-  const [updated] = await db.update(projects).set({ ...meta, updatedAt: new Date() }).where(eq(projects.address, address)).returning()
+  const [updated] = await db().update(projects).set({ ...meta, updatedAt: new Date() }).where(eq(projects.address, address)).returning()
   return json(projectView(updated))
 })

@@ -2,7 +2,9 @@
 /**
  * Wallet connection (wagmi + ConnectKit)
  *
- * "Mock wallet" for development/testing: when NEXT_PUBLIC_MOCK_WALLET=1 and the chain is local anvil,
+ * Both networks (Arc Testnet / Arc Mainnet) are registered; the one selected in the nav is used for transactions.
+ *
+ * "Mock wallet" for development/testing: when NEXT_PUBLIC_MOCK_WALLET=1 and the testnet chain is local anvil,
  * wagmi's mock connector auto-connects an anvil test account (anvil signs and sends on its behalf),
  * so the full flow can run in a browser without MetaMask.
  * Choose the account with localStorage.setItem('mockAccount', '0x...'); defaults to anvil account 0.
@@ -13,9 +15,12 @@ import { WagmiProvider, createConfig, http, useConnect, useAccount } from 'wagmi
 import { mock } from '@wagmi/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectKitProvider, getDefaultConfig } from 'connectkit'
-import { appChain } from '@/config/chain'
+import { NETWORKS } from '@/config/networks'
 
-const MOCK = process.env.NEXT_PUBLIC_MOCK_WALLET === '1' && appChain.id === 31337
+const MOCK = process.env.NEXT_PUBLIC_MOCK_WALLET === '1' && NETWORKS.testnet.chain.id === 31337
+
+// Testnet first: wagmi treats the first chain as the default
+const CHAINS = [NETWORKS.testnet.chain, NETWORKS.mainnet.chain] as const
 const ANVIL_ACCOUNT_0 = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
 function mockAccount(): `0x${string}` {
@@ -31,8 +36,8 @@ function mockAccount(): `0x${string}` {
 function buildConfig() {
   return createConfig(
     getDefaultConfig({
-      chains: [appChain],
-      transports: { [appChain.id]: http(appChain.rpcUrls.default.http[0]) },
+      chains: CHAINS,
+      transports: Object.fromEntries(CHAINS.map((c) => [c.id, http(c.rpcUrls.default.http[0])])),
       walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '',
       appName: 'TokenShoe',
       appDescription: 'Token distribution on Arc — Merkle airdrops, signature airdrops and vesting',

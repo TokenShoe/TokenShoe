@@ -7,6 +7,7 @@
  *   3. next dev started with environment variables pointing at anvil
  * Run:
  *   E2E_FACTORY=0x… E2E_TOKEN=0x… bun scripts/e2e.ts
+ *   E2E_NETWORK=mainnet …            test the mainnet backend (sends x-network: mainnet; point E2E_RPC at a chain with id 5042)
  */
 import {
   createPublicClient, createWalletClient, http, parseAbi, parseEther, encodeAbiParameters,
@@ -21,14 +22,18 @@ const RPC = process.env.E2E_RPC ?? 'http://127.0.0.1:8545'
 const FACTORY = process.env.E2E_FACTORY as Address
 const TOKEN = process.env.E2E_TOKEN as Address
 if (!FACTORY || !TOKEN) throw new Error('Set E2E_FACTORY and E2E_TOKEN')
+// Which backend network to test (x-network header); unset = the server default (testnet)
+const NETWORK = process.env.E2E_NETWORK
 
 // Default anvil accounts
 const creator = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80')
 const alice = privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d')
 const bob = privateKeyToAccount('0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a')
 
-const pub = createPublicClient({ chain: foundry, transport: http(RPC) })
-const wallet = (account: typeof creator) => createWalletClient({ account, chain: foundry, transport: http(RPC) })
+// anvil chain; its id may differ from 31337 (e.g. --chain-id 5042 to stand in for Arc Mainnet)
+const chain = { ...foundry, id: await createPublicClient({ transport: http(RPC) }).getChainId() }
+const pub = createPublicClient({ chain, transport: http(RPC) })
+const wallet = (account: typeof creator) => createWalletClient({ account, chain, transport: http(RPC) })
 
 const ABI = parseAbi([
   'function createProject(uint8 implType, address token, uint256 fundAmount, bytes32 userSalt, bytes initData) returns (address)',
@@ -63,6 +68,7 @@ async function api(path: string, opts: { method?: string; json?: unknown; form?:
     headers: {
       ...(opts.json ? { 'content-type': 'application/json' } : {}),
       ...(opts.cookie ? { cookie: opts.cookie } : {}),
+      ...(NETWORK ? { 'x-network': NETWORK } : {}),
     },
     body: opts.json ? JSON.stringify(opts.json) : opts.form,
   })
@@ -72,12 +78,12 @@ async function api(path: string, opts: { method?: string; json?: unknown; form?:
 async function login(account: typeof creator): Promise<string> {
   const { body: { nonce } } = await api('/api/auth/nonce')
   const message = createSiweMessage({
-    address: account.address, chainId: foundry.id, domain: 'localhost:3000', nonce,
-    uri: 'http://localhost:3000', version: '1', statement: 'Sign in to TokenShoe',
+    address: account.address, chainId: chain.id, domain: new URL(BASE).host, nonce,
+    uri: new URL(BASE).origin, version: '1', statement: 'Sign in to TokenShoe',
   })
   const signature = await account.signMessage({ message })
   const res = await fetch(BASE + '/api/auth/login', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message, signature }),
+    method: 'POST', headers: { 'content-type': 'application/json', ...(NETWORK ? { 'x-network': NETWORK } : {}) }, body: JSON.stringify({ message, signature }),
   })
   const cookie = res.headers.get('set-cookie')?.split(';')[0]
   if (!cookie) throw new Error(`Sign-in failed ${res.status} ${await res.text()}`)

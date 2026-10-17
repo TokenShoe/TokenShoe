@@ -18,10 +18,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { Abi, Hex } from 'viem'
 import { api, ApiClientError } from '@/lib/client/api'
-import { errorMessage, WALLET_RPC_HINT } from '@/lib/client/errors'
+import { errorMessage, walletRpcHint } from '@/lib/client/errors'
 import { useWalletNetwork } from '@/hooks/useWalletNetwork'
 import type { TxSyncResult } from '@/lib/client/types'
-import { appChain } from '@/config/chain'
+import { useNetwork } from '@/hooks/useNetwork'
+import type { NetworkKey } from '@/config/networks'
+import { getActiveNetwork } from '@/lib/client/activeNetwork'
 
 export interface SyncExtras {
   meta?: Record<string, string | undefined>
@@ -37,7 +39,8 @@ export interface SendParams {
 // ─── Pending-sync queue (localStorage) ───────────────────────────────────────
 
 const PENDING_KEY = 'tokendis.pendingTxs'
-interface PendingTx { hash: Hex; meta?: SyncExtras['meta']; at: number }
+/** network: which backend to sync with (entries saved before networks existed have none = testnet) */
+interface PendingTx { hash: Hex; meta?: SyncExtras['meta']; at: number; network?: NetworkKey }
 
 function readPending(): PendingTx[] {
   try {
@@ -66,12 +69,12 @@ export function listPending() {
 /** Errors not worth retrying (the transaction itself failed) */
 const FATAL_SYNC_CODES = new Set(['TX_REVERTED', 'BAD_REQUEST'])
 
-/** Submit to /api/tx, retrying network errors up to 3 times */
-export async function syncTx(hash: Hex, extras: SyncExtras = {}): Promise<TxSyncResult> {
+/** Submit to /api/tx of the given network (default: the selected one), retrying network errors up to 3 times */
+export async function syncTx(hash: Hex, extras: SyncExtras = {}, network: NetworkKey = getActiveNetwork()): Promise<TxSyncResult> {
   let last: unknown
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await api<TxSyncResult>('/api/tx', { json: { txHash: hash, ...extras } })
+      return await api<TxSyncResult>('/api/tx', { json: { txHash: hash, ...extras }, network })
     } catch (e) {
       last = e
       if (e instanceof ApiClientError && (FATAL_SYNC_CODES.has(e.code) || e.code === 'PROJECT_NOT_SYNCED')) throw e
@@ -86,6 +89,8 @@ export function useChainTx() {
   const walletNetwork = useWalletNetwork()
   const { switchChainAsync } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
+  const { network } = useNetwork()
+  const appChain = network.chain
   const publicClient = usePublicClient({ chainId: appChain.id })
   const queryClient = useQueryClient()
 
@@ -95,7 +100,7 @@ export function useChainTx() {
       if (chainId !== appChain.id) await switchChainAsync({ chainId: appChain.id })
       // Make sure the wallet's own RPC works; if not, suggest ours (wallet shows an approval prompt)
       const net = await walletNetwork.fix()
-      if (net === 'rpc-down') throw new Error(WALLET_RPC_HINT)
+      if (net === 'rpc-down') throw new Error(walletRpcHint())
       if (net === 'wrong-chain') throw new Error(`Switch your wallet to ${appChain.name} (chain ID ${appChain.id}) and try again.`)
 
       const hash = await writeContractAsync({ ...request, chainId: appChain.id } as Parameters<typeof writeContractAsync>[0])
@@ -106,9 +111,9 @@ export function useChainTx() {
       let result: TxSyncResult | null = null
       if (sync !== false) {
         toast.loading(`${label}: syncing…`, { id })
-        addPending({ hash, meta: sync.meta, at: Date.now() })
+        addPending({ hash, meta: sync.meta, at: Date.now(), network: network.key })
         try {
-          result = await syncTx(hash, sync)
+          result = await syncTx(hash, sync, network.key)
           removePending(hash)
         } catch (e) {
           // The tx succeeded on-chain and only the sync failed: keep it queued for retry instead of treating it as a failure
@@ -127,7 +132,7 @@ export function useChainTx() {
       toast.error(`${label}: ${errorMessage(e)}`, { id })
       throw e
     }
-  }, [chainId, switchChainAsync, writeContractAsync, publicClient, queryClient, walletNetwork])
+  }, [chainId, switchChainAsync, writeContractAsync, publicClient, queryClient, walletNetwork, network.key, appChain])
 
   return { send }
 }

@@ -4,24 +4,34 @@
  */
 import { z } from 'zod'
 
+const zAddr = z.string().regex(/^0x[0-9a-fA-F]{40}$/)
+
 const schema = z.object({
+  // One database per network. DATABASE_URL = Arc Testnet; DATABASE_URL_MAINNET = Arc Mainnet
+  // (optional until mainnet goes live - mainnet API calls answer 503 NETWORK_UNAVAILABLE without it)
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is not set (Postgres connection string)'),
+  DATABASE_URL_MAINNET: z.string().min(1).optional(),
   // Master key used to encrypt signer private keys: 32 bytes = 64 hex characters. Generate with: openssl rand -hex 32
   SIGN_KEY_SECRET: z.string().regex(/^[0-9a-fA-F]{64}$/, 'SIGN_KEY_SECRET must be 64 hex characters'),
   // Secret for signing the session cookie; any random string of 32+ characters. Generate with: openssl rand -hex 32
   AUTH_SECRET: z.string().min(32, 'AUTH_SECRET must be at least 32 characters'),
 
-  // Chain config: chain id / public RPC / factory address are shared with the frontend via NEXT_PUBLIC_* (see config/chain.ts)
-  // RPC_URL is optional: a private server-side RPC (more reliable, no rate limits); falls back to NEXT_PUBLIC_RPC_URL
+  // Chain config (chain ids, public RPCs, contract addresses) lives in config/networks.ts.
+  // Optional private server-side RPCs (more reliable, no rate limits); fall back to the public ones
   RPC_URL: z.string().url().optional(),
-  // The three implementation addresses (server only; used to recognise clones created by our factory)
-  MERKLE_IMPL: z.string().regex(/^0x[0-9a-fA-F]{40}$/).default('0xAc68198e66f46920125D48fAfA978c5067cE4B15'),
-  SIGN_IMPL: z.string().regex(/^0x[0-9a-fA-F]{40}$/).default('0x17968730099016e6679911Ad62603e337d3dcc75'),
-  VESTING_IMPL: z.string().regex(/^0x[0-9a-fA-F]{40}$/).default('0xC4e6Da6235190422E6BC4d3D7a1E0DEd412E3877'),
+  MAINNET_RPC_URL: z.string().url().optional(),
+  // Optional overrides of the implementation addresses in config/networks.ts (used to recognise clones of our factory)
+  MERKLE_IMPL: zAddr.optional(),
+  SIGN_IMPL: zAddr.optional(),
+  VESTING_IMPL: zAddr.optional(),
+  MAINNET_MERKLE_IMPL: zAddr.optional(),
+  MAINNET_SIGN_IMPL: zAddr.optional(),
+  MAINNET_VESTING_IMPL: zAddr.optional(),
 
   // Signature airdrop: validity of each issued signature (seconds)
   SIGN_TTL_SECONDS: z.coerce.number().int().min(60).default(1800),
-  // Domain in the SIWE sign-in message (must match the domain the frontend is served from), e.g. localhost:3000
+  // Domain(s) allowed in the SIWE sign-in message, comma-separated, e.g. localhost:3000,tokenshoe.xyz
+  // On Vercel the deployment's own domains are allowed automatically (see allowedSignInDomains)
   APP_DOMAIN: z.string().default('localhost:3000'),
 })
 
@@ -32,3 +42,12 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data
+
+/** Domains accepted in SIWE messages: APP_DOMAIN entries + the current Vercel deployment / branch / production domains */
+export function allowedSignInDomains(): Set<string> {
+  const list = env.APP_DOMAIN.split(',').map((d) => d.trim()).filter(Boolean)
+  for (const v of [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]) {
+    if (v) list.push(v)
+  }
+  return new Set(list.map((d) => d.toLowerCase()))
+}

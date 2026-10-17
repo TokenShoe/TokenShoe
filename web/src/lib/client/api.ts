@@ -2,7 +2,12 @@
  * Browser-side wrapper for calling the backend API.
  * Backend errors are always { error: { code, message, details } }; they are rethrown as ApiClientError
  * so pages can branch on the code (e.g. CLAIM_PENDING_SYNC).
+ * Every request carries the selected network (x-network header + ?network= in the URL, so browser/CDN caches never
+ * mix networks); the backend uses that network's database and chain.
  */
+import type { NetworkKey } from '@/config/networks'
+import { getActiveNetwork } from './activeNetwork'
+
 export class ApiClientError extends Error {
   constructor(public status: number, public code: string, message: string, public details?: unknown) {
     super(message)
@@ -13,14 +18,21 @@ export interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   json?: unknown
   form?: FormData
+  /** Backend network to talk to; defaults to the one selected in the nav */
+  network?: NetworkKey
 }
 
 export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Promise<T> {
+  const network = opts.network ?? getActiveNetwork()
+  const url = `${path}${path.includes('?') ? '&' : '?'}network=${network}`
   let res: Response
   try {
-    res = await fetch(path, {
+    res = await fetch(url, {
       method: opts.method ?? (opts.json !== undefined || opts.form ? 'POST' : 'GET'),
-      headers: opts.json !== undefined ? { 'content-type': 'application/json' } : undefined,
+      headers: {
+        'x-network': network,
+        ...(opts.json !== undefined ? { 'content-type': 'application/json' } : {}),
+      },
       body: opts.json !== undefined ? JSON.stringify(opts.json) : opts.form,
       credentials: 'same-origin',
     })

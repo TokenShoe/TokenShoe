@@ -25,9 +25,9 @@ export const GET = route<{ params: { address: string } }>('vesting.schedules', a
     q.beneficiary ? eq(vestingSchedules.beneficiary, q.beneficiary) : undefined,
   )
   const [rows, [{ total }]] = await Promise.all([
-    db.select().from(vestingSchedules).where(where).orderBy(asc(vestingSchedules.scheduleId))
+    db().select().from(vestingSchedules).where(where).orderBy(asc(vestingSchedules.scheduleId))
       .limit(q.pageSize).offset((q.page - 1) * q.pageSize),
-    db.select({ total: sql<number>`count(*)::int` }).from(vestingSchedules).where(where),
+    db().select({ total: sql<number>`count(*)::int` }).from(vestingSchedules).where(where),
   ])
   const now = Math.floor(Date.now() / 1000)
   const items = rows.map((s) => {

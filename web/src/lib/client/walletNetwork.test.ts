@@ -1,7 +1,9 @@
 /** Unit tests for the wallet RPC probe / fix logic, using fake EIP-1193 providers. Run: bun test */
 import { describe, expect, test } from 'bun:test'
 import { ensureWalletNetwork, probeWallet, type Eip1193 } from './walletNetwork'
-import { appChain } from '@/config/chain'
+import { NETWORKS } from '@/config/networks'
+
+const appChain = NETWORKS.testnet.chain
 
 const OUR_CHAIN = '0x' + appChain.id.toString(16)
 
@@ -32,26 +34,26 @@ function fakeWallet(opts: { chainId?: string; rpcWorks: boolean; acceptAdd?: boo
 
 describe('probeWallet', () => {
   test('healthy wallet -> ok', async () => {
-    expect(await probeWallet(fakeWallet({ rpcWorks: true }).provider)).toBe('ok')
+    expect(await probeWallet(fakeWallet({ rpcWorks: true }).provider, appChain)).toBe('ok')
   })
   test('other chain -> wrong-chain', async () => {
-    expect(await probeWallet(fakeWallet({ chainId: '0x1', rpcWorks: true }).provider)).toBe('wrong-chain')
+    expect(await probeWallet(fakeWallet({ chainId: '0x1', rpcWorks: true }).provider, appChain)).toBe('wrong-chain')
   })
   test('broken RPC -> rpc-down', async () => {
-    expect(await probeWallet(fakeWallet({ rpcWorks: false }).provider)).toBe('rpc-down')
+    expect(await probeWallet(fakeWallet({ rpcWorks: false }).provider, appChain)).toBe('rpc-down')
   })
 })
 
 describe('ensureWalletNetwork', () => {
   test('healthy wallet is never prompted', async () => {
     const w = fakeWallet({ rpcWorks: true })
-    expect(await ensureWalletNetwork(w.provider)).toBe('ok')
+    expect(await ensureWalletNetwork(w.provider, appChain)).toBe('ok')
     expect(w.calls.some((c) => c.method === 'wallet_addEthereumChain')).toBe(false)
   })
 
   test('broken RPC: suggests our RPC URL and recovers when the user approves', async () => {
     const w = fakeWallet({ rpcWorks: false, acceptAdd: true })
-    expect(await ensureWalletNetwork(w.provider)).toBe('ok')
+    expect(await ensureWalletNetwork(w.provider, appChain)).toBe('ok')
     const add = w.calls.find((c) => c.method === 'wallet_addEthereumChain')!
     const params = (add.params as { chainId: string; rpcUrls: string[] }[])[0]
     expect(params.chainId).toBe(OUR_CHAIN)
@@ -60,17 +62,17 @@ describe('ensureWalletNetwork', () => {
 
   test('broken RPC and the user rejects -> rpc-down (banner shows)', async () => {
     const w = fakeWallet({ rpcWorks: false, acceptAdd: false })
-    expect(await ensureWalletNetwork(w.provider)).toBe('rpc-down')
+    expect(await ensureWalletNetwork(w.provider, appChain)).toBe('rpc-down')
   })
 
   test('wallet with a pending request is treated as rpc-down and gets the suggestion', async () => {
     const w = fakeWallet({ rpcWorks: false, acceptAdd: true, pendingError: true })
-    expect(await ensureWalletNetwork(w.provider)).toBe('ok')
+    expect(await ensureWalletNetwork(w.provider, appChain)).toBe('ok')
   })
 
   test('wrong chain is left to the normal switchChain flow (no prompt here)', async () => {
     const w = fakeWallet({ chainId: '0x1', rpcWorks: true })
-    expect(await ensureWalletNetwork(w.provider)).toBe('wrong-chain')
+    expect(await ensureWalletNetwork(w.provider, appChain)).toBe('wrong-chain')
     expect(w.calls.some((c) => c.method === 'wallet_addEthereumChain')).toBe(false)
   })
 })

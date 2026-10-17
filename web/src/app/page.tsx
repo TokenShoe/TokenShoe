@@ -11,7 +11,8 @@ import { DailyBars } from '@/components/charts/DailyBars'
 import { ProjectRow } from '@/components/project/ProjectRow'
 import { useDailyStats, useProjects, useStats } from '@/hooks/queries'
 import { formatCompact, plural } from '@/lib/client/format'
-import { appChain, TEST_TOKEN_FACTORY } from '@/config/chain'
+import { isDeployed } from '@/config/networks'
+import { useNetwork } from '@/hooks/useNetwork'
 
 type Metric = 'claims' | 'newClaimers' | 'projectsCreated'
 const METRICS: { key: Metric; label: string; unit: string }[] = [
@@ -27,6 +28,7 @@ const FEATURES = [
 ]
 
 export default function Home() {
+  const { network } = useNetwork()
   const stats = useStats()
   const daily = useDailyStats(30)
   const recent = useProjects({ pageSize: 5 })
@@ -41,7 +43,7 @@ export default function Home() {
         className="pt-6 space-y-5 max-w-2xl"
       >
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-light text-blue-text text-xs font-medium rounded-full tracking-wide uppercase">
-          {appChain.name} · Live
+          {network.label} · {isDeployed(network) ? 'Live' : 'Coming soon'}
         </div>
         <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink tracking-tight-display leading-[1.1]">
           Token distribution,<br />without the overhead
@@ -54,10 +56,10 @@ export default function Home() {
           <LinkButton href="/create" size="lg">Create a project <ArrowRight size={14} /></LinkButton>
           <LinkButton href="/claim" variant="secondary" size="lg">Check my airdrops</LinkButton>
         </div>
-        {TEST_TOKEN_FACTORY && (
+        {network.testTokenFactory && (
           <Link href="/test-token" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink transition-colors">
             <Sparkles size={14} className="text-blue-text" />
-            Just exploring? Mint a free test token to try it out <ArrowRight size={12} />
+            Just exploring? Mint a test token to try it out <ArrowRight size={12} />
           </Link>
         )}
       </motion.section>

@@ -6,7 +6,8 @@ import { clsx } from 'clsx'
 import { ConnectKitButton } from 'connectkit'
 import { Layers, Menu, X } from 'lucide-react'
 import { FaucetButton } from './FaucetButton'
-import { appChain } from '@/config/chain'
+import { NetworkSelect } from './NetworkSelect'
+import { useNetwork } from '@/hooks/useNetwork'
 
 const LINKS = [
   { href: '/explore', label: 'Explore' },
@@ -19,6 +20,7 @@ const LINKS = [
 export function Nav() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const { network } = useNetwork()
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
@@ -28,10 +30,11 @@ export function Nav() {
           <span className="w-7 h-7 bg-ink rounded-[6px] flex items-center justify-center">
             <Layers size={14} className="text-white" />
           </span>
-          TokenShoe
+          {/* Phones: icon only, to leave room for the network menu and wallet button */}
+          <span className="hidden sm:inline">TokenShoe</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden lg:flex items-center gap-1">
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} className={clsx(
               'px-3 py-1.5 rounded-btn text-sm font-medium transition-colors',
@@ -41,21 +44,24 @@ export function Nav() {
         </div>
 
         <div className="flex items-center gap-2">
-          {appChain.testnet && <FaucetButton />}
+          <NetworkSelect />
+          {network.faucet && <span className="hidden sm:contents"><FaucetButton /></span>}
           <ConnectKitButton />
-          <button className="md:hidden p-2 rounded-btn hover:bg-black/5" onClick={() => setOpen(!open)} aria-label="Menu">
+          <button className="lg:hidden p-2 rounded-btn hover:bg-black/5" onClick={() => setOpen(!open)} aria-label="Menu">
             {open ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </div>
       {open && (
-        <div className="md:hidden border-t border-border px-4 py-2 flex flex-col">
+        <div className="lg:hidden border-t border-border px-4 py-2 flex flex-col">
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className={clsx(
               'px-3 py-2 rounded-btn text-sm font-medium',
               isActive(l.href) ? 'bg-ink text-white' : 'text-ink hover:bg-black/5',
             )}>{l.label}</Link>
           ))}
+          {/* On phones the faucet lives here instead of the top bar */}
+          {network.faucet && <div className="sm:hidden"><FaucetButton variant="menu" /></div>}
         </div>
       )}
     </nav>

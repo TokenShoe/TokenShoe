@@ -30,7 +30,7 @@ export const POST = route<{ params: { address: string } }>('sign.signer', async 
   if (!key) throw new ApiError(400, 'BAD_PRIVATE_KEY', 'Invalid private key (expected 64 hex characters)')
 
   // Trust the chain (the DB signer may not be synced yet)
-  const onChainSigner = (await publicClient.readContract({
+  const onChainSigner = (await publicClient().readContract({
     address: project.address as `0x${string}`, abi: AIRDROP_READ_ABI, functionName: 'signer',
   })).toLowerCase() as `0x${string}`
 
@@ -39,7 +39,7 @@ export const POST = route<{ params: { address: string } }>('sign.signer', async 
 
   const signerAddress = privateKeyToAccount(key).address.toLowerCase()
   const encrypted = encryptPrivKey(key)
-  await db.transaction(async (tx) => {
+  await db().transaction(async (tx) => {
     await tx.insert(signSigners).values({ projectAddress: project.address, signerAddress, encryptedPrivKey: encrypted })
       .onConflictDoUpdate({ target: signSigners.projectAddress, set: { signerAddress, encryptedPrivKey: encrypted, updatedAt: new Date() } })
     await tx.update(projects).set({ signerAddress, updatedAt: new Date() }).where(eq(projects.address, project.address))

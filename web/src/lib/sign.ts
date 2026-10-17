@@ -28,7 +28,7 @@ export async function signClaim(opts: {
 }): Promise<Hex> {
   const signer = privateKeyToAccount(opts.privateKey)
   return signer.signTypedData({
-    domain: { name: 'TokenSignDis', version: '1', chainId: chain.id, verifyingContract: opts.project },
+    domain: { name: 'TokenSignDis', version: '1', chainId: chain().id, verifyingContract: opts.project },
     types: {
       ClaimRequest: [
         { name: 'account', type: 'address' },

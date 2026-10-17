@@ -2,7 +2,7 @@
  * API response types used by the frontend (match backend lib/views.ts and lib/eligibility.ts).
  * All amounts are base-unit strings.
  */
-import type { ProjectKind } from '@/config/chain'
+import type { ProjectKind } from '@/config/networks'
 
 export type ProjectStatus = 'upcoming' | 'active' | 'paused' | 'ended'
 

@@ -5,6 +5,7 @@ import './globals.css'
 import { AppProviders } from '@/components/providers/AppProviders'
 import { Nav } from '@/components/layout/Nav'
 import { WalletNetworkBanner } from '@/components/layout/WalletNetworkBanner'
+import { NotDeployedBanner } from '@/components/layout/NotDeployedBanner'
 
 const display = Space_Grotesk({ subsets: ['latin'], variable: '--font-display', display: 'swap' })
 const body = DM_Sans({ subsets: ['latin'], variable: '--font-body', display: 'swap' })
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh bg-canvas font-body">
         <AppProviders>
           <Nav />
+          <NotDeployedBanner />
           <WalletNetworkBanner />
           <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">{children}</main>
           <footer className="max-w-5xl mx-auto px-4 sm:px-6 py-10 text-xs text-muted">

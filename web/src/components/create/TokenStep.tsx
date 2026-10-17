@@ -8,11 +8,12 @@ import { Input } from '@/components/ui/Input'
 import { Notice } from '@/components/ui/Feedback'
 import { CreateTestToken, TEST_TOKEN_SUPPLY_LABEL } from '@/components/test-token/CreateTestToken'
 import { formatToken } from '@/lib/client/format'
-import { TEST_TOKEN_FACTORY } from '@/config/chain'
+import { useNetwork } from '@/hooks/useNetwork'
 import type { Patch, TokenInfo, WizardState } from './types'
 
 export function TokenStep({ s, patch, token, loading }: { s: WizardState; patch: Patch; token: TokenInfo | null; loading: boolean }) {
   const valid = isAddress(s.token, { strict: false })
+  const { network } = useNetwork()
   const [showTest, setShowTest] = useState(false)
   const [justCreated, setJustCreated] = useState<string | null>(null)
 
@@ -48,7 +49,7 @@ export function TokenStep({ s, patch, token, loading }: { s: WizardState; patch:
           <Notice tone="success">Test token created and selected. You&apos;re ready for the next step.</Notice>
         )}
 
-        {TEST_TOKEN_FACTORY && (
+        {network.testTokenFactory && (
           <div className="rounded-btn border border-dashed border-border">
             <button
               type="button"

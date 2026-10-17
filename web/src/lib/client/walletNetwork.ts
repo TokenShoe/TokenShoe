@@ -6,8 +6,7 @@
  * "Requested resource not available". A site cannot silently edit wallet settings, but it can suggest
  * our RPC with wallet_addEthereumChain; wallets such as MetaMask then ask the user to add/switch to it.
  */
-import { numberToHex } from 'viem'
-import { appChain } from '@/config/chain'
+import { numberToHex, type Chain } from 'viem'
 
 export interface Eip1193 {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
@@ -22,7 +21,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 /** Ask the wallet for its chain id and latest block. Both go through the wallet's own RPC. */
-export async function probeWallet(provider: Eip1193): Promise<WalletNetworkState> {
+export async function probeWallet(provider: Eip1193, appChain: Chain): Promise<WalletNetworkState> {
   try {
     const chainId = await withTimeout(provider.request({ method: 'eth_chainId' }), PROBE_TIMEOUT_MS)
     if (Number(chainId) !== appChain.id) return 'wrong-chain'
@@ -35,7 +34,7 @@ export async function probeWallet(provider: Eip1193): Promise<WalletNetworkState
 }
 
 /** Suggest our chain config (with our RPC URL) to the wallet, then switch to it. Requires user approval. */
-export async function suggestOurNetwork(provider: Eip1193): Promise<void> {
+export async function suggestOurNetwork(provider: Eip1193, appChain: Chain): Promise<void> {
   await provider.request({
     method: 'wallet_addEthereumChain',
     params: [{
@@ -54,14 +53,14 @@ export async function suggestOurNetwork(provider: Eip1193): Promise<void> {
  * Probe, and if the wallet's RPC is broken, suggest our RPC once and probe again.
  * Returns the final state; never throws.
  */
-export async function ensureWalletNetwork(provider: Eip1193): Promise<WalletNetworkState> {
-  const first = await probeWallet(provider)
+export async function ensureWalletNetwork(provider: Eip1193, appChain: Chain): Promise<WalletNetworkState> {
+  const first = await probeWallet(provider, appChain)
   if (first !== 'rpc-down') return first
   try {
-    await suggestOurNetwork(provider)
+    await suggestOurNetwork(provider, appChain)
   } catch (e) {
     console.warn('[wallet] wallet_addEthereumChain was rejected or unsupported', e)
     return 'rpc-down'
   }
-  return probeWallet(provider)
+  return probeWallet(provider, appChain)
 }

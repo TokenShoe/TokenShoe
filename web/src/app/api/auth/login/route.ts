@@ -9,7 +9,7 @@ import { db } from '@/db/client'
 import { authNonces } from '@/db/schema'
 import { ApiError, json, parseBody, route } from '@/lib/http'
 import { publicClient, chain } from '@/lib/chain'
-import { env } from '@/lib/env'
+import { allowedSignInDomains } from '@/lib/env'
 import { createSessionToken, SESSION_COOKIE, SESSION_TTL_SECONDS } from '@/lib/auth'
 
 const Body = z.object({
@@ -21,12 +21,13 @@ export const POST = route('auth.login', async (req) => {
   const { message, signature } = await parseBody(req, Body)
   const fields = parseSiweMessage(message)
 
-  if (!validateSiweMessage({ message: fields, domain: env.APP_DOMAIN }) || fields.chainId !== chain.id) {
+  const domain = fields.domain?.toLowerCase()
+  if (!domain || !allowedSignInDomains().has(domain) || !validateSiweMessage({ message: fields, domain }) || fields.chainId !== chain().id) {
     throw new ApiError(400, 'SIWE_INVALID', 'Invalid sign-in message (domain, chain or time mismatch)')
   }
 
   // The nonce must be one we issued, less than 10 minutes old and unused - mark it used atomically
-  const used = await db
+  const used = await db()
     .update(authNonces)
     .set({ usedAt: new Date() })
     .where(and(
@@ -38,7 +39,7 @@ export const POST = route('auth.login', async (req) => {
   if (used.length === 0) throw new ApiError(400, 'NONCE_INVALID', 'Sign-in nonce is invalid or expired, please try again')
 
   // verifySiweMessage supports both regular wallets and contract wallets (ERC-1271, e.g. multisigs)
-  const ok = await publicClient.verifySiweMessage({ message, signature: signature as `0x${string}` })
+  const ok = await publicClient().verifySiweMessage({ message, signature: signature as `0x${string}` })
   if (!ok) throw new ApiError(401, 'BAD_SIGNATURE', 'Signature verification failed')
 
   const address = fields.address!.toLowerCase()

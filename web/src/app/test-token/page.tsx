@@ -15,7 +15,7 @@ import { AddressLink } from '@/components/project/Bits'
 import { CreateTestToken, TEST_TOKEN_SUPPLY_LABEL } from '@/components/test-token/CreateTestToken'
 import { ERC20_FULL_ABI, TEST_TOKEN_FACTORY_ABI } from '@/lib/abis'
 import { formatToken } from '@/lib/client/format'
-import { appChain, TEST_TOKEN_FACTORY } from '@/config/chain'
+import { useNetwork } from '@/hooks/useNetwork'
 
 const STEPS = [
   { title: 'Create a test token', desc: `Pick a name and symbol. ${TEST_TOKEN_SUPPLY_LABEL} tokens land in your wallet.` },
@@ -25,9 +25,10 @@ const STEPS = [
 
 export default function TestTokenPage() {
   const { address, isConnected } = useAccount()
+  const { network } = useNetwork()
   const [highlight, setHighlight] = useState<string | null>(null)
 
-  if (!TEST_TOKEN_FACTORY) {
+  if (!network.testTokenFactory) {
     return (
       <Card className="max-w-xl mx-auto">
         <EmptyState title="Test tokens are not available on this network" />
@@ -40,7 +41,7 @@ export default function TestTokenPage() {
       <div className="max-w-2xl">
         <h1 className="font-display font-bold text-2xl text-ink tracking-tight-display">Test tokens</h1>
         <p className="text-muted text-sm mt-1">
-          Mint a free ERC-20 on {appChain.name} to try every distribution type end to end. Test tokens have no value.
+          Mint an ERC-20 on {network.label} to try every distribution type end to end ({network.chain.testnet ? 'free' : 'you only pay gas'}). Test tokens have no value.
         </p>
       </div>
 
@@ -78,17 +79,19 @@ export default function TestTokenPage() {
 }
 
 function MyTokens({ owner, highlight }: { owner: `0x${string}`; highlight: string | null }) {
+  const { network } = useNetwork()
+  const chainId = network.chain.id
   const list = useReadContract({
-    address: TEST_TOKEN_FACTORY!, abi: TEST_TOKEN_FACTORY_ABI, functionName: 'tokensOf', args: [owner], chainId: appChain.id,
+    address: network.testTokenFactory!, abi: TEST_TOKEN_FACTORY_ABI, functionName: 'tokensOf', args: [owner], chainId,
   })
   // Newest first
   const tokens = [...(list.data ?? [])].reverse()
   const details = useReadContracts({
     allowFailure: true,
     contracts: tokens.flatMap((t) => [
-      { address: t, abi: ERC20_FULL_ABI, functionName: 'name', chainId: appChain.id },
-      { address: t, abi: ERC20_FULL_ABI, functionName: 'symbol', chainId: appChain.id },
-      { address: t, abi: ERC20_FULL_ABI, functionName: 'balanceOf', args: [owner], chainId: appChain.id },
+      { address: t, abi: ERC20_FULL_ABI, functionName: 'name', chainId },
+      { address: t, abi: ERC20_FULL_ABI, functionName: 'symbol', chainId },
+      { address: t, abi: ERC20_FULL_ABI, functionName: 'balanceOf', args: [owner], chainId },
     ] as const),
     query: { enabled: tokens.length > 0 },
   })

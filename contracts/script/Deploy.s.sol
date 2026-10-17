@@ -16,7 +16,7 @@ import {TestTokenFactory} from "../TestTokenFactory.sol";
 ///   PRIVATE_KEY     required, deployer wallet private key (needs gas; gas on Arc is USDC)
 ///   FACTORY_OWNER   optional, final factory owner (e.g. a multisig). Empty = the deployer wallet itself.
 ///                   If set: the deployer registers the implementations first, then starts a two-step transfer; the new owner must call acceptOwnership().
-///   DEPLOY_TEST_TOKEN_FACTORY  optional, default true. Set to false to skip TestTokenFactory (e.g. on mainnet).
+///   DEPLOY_TEST_TOKEN_FACTORY  optional, default true. Set to false to skip TestTokenFactory.
 ///
 /// Usage: ./deploy.sh (recommended, with checks) or
 ///   forge script contracts/script/Deploy.s.sol --rpc-url arc_testnet --broadcast

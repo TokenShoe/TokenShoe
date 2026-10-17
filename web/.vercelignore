@@ -1,0 +1,9 @@
+# Local-only files that must not be uploaded to Vercel
+.env*.local
+.next
+.next-e2e
+e2e-shots
+tsconfig.tsbuildinfo
+.agents
+.claude
+skills-lock.json

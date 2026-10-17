@@ -3,10 +3,11 @@
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useWalletNetwork } from '@/hooks/useWalletNetwork'
-import { appChain } from '@/config/chain'
+import { useNetwork } from '@/hooks/useNetwork'
 
 export function WalletNetworkBanner() {
   const { state, fixing, fix } = useWalletNetwork()
+  const appChain = useNetwork().network.chain
   if (state !== 'rpc-down') return null
   const rpc = appChain.rpcUrls.default.http[0]
   return (

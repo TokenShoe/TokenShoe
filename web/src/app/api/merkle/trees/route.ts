@@ -23,7 +23,7 @@ import { buildMerkleTree } from '@/lib/merkle'
 import { log } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 120
+export const maxDuration = 60 // Vercel Hobby caps functions at 60s
 
 export const POST = route('merkle.upload', async (req) => {
   const { address: uploader } = requireSession(req)
@@ -35,7 +35,7 @@ export const POST = route('merkle.upload', async (req) => {
   const rows = parseAllocationCsv(await readCsvFile(file), decimals, unit)
   const tree = buildMerkleTree(rows)
 
-  await db.transaction(async (tx) => {
+  await db().transaction(async (tx) => {
     const inserted = await tx.insert(merkleTrees).values({
       root: tree.root,
       totalEntries: tree.entries.length,

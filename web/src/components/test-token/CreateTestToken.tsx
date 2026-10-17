@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useChainTx } from '@/hooks/useChainTx'
 import { TEST_TOKEN_FACTORY_ABI } from '@/lib/abis'
-import { appChain, TEST_TOKEN_FACTORY } from '@/config/chain'
+import { useNetwork } from '@/hooks/useNetwork'
 
 export const TEST_TOKEN_SUPPLY_LABEL = '100,000,000'
 
@@ -19,7 +19,9 @@ export interface CreatedToken { address: Address; name: string; symbol: string }
 
 export function CreateTestToken({ onCreated, compact }: { onCreated?: (t: CreatedToken) => void; compact?: boolean }) {
   const { send } = useChainTx()
-  const publicClient = usePublicClient({ chainId: appChain.id })
+  const { network } = useNetwork()
+  const factory = network.testTokenFactory
+  const publicClient = usePublicClient({ chainId: network.chain.id })
   const [name, setName] = useState('')
   const [symbol, setSymbol] = useState('')
   const [busy, setBusy] = useState(false)
@@ -29,18 +31,18 @@ export function CreateTestToken({ onCreated, compact }: { onCreated?: (t: Create
   const valid = name.trim().length > 0 && symbol.length > 0 && !nameErr && !symbolErr
 
   async function create() {
-    if (!TEST_TOKEN_FACTORY || !valid) return
+    if (!factory || !valid) return
     setBusy(true)
     try {
       const { hash } = await send({
         label: `Create ${symbol}`,
-        request: { address: TEST_TOKEN_FACTORY, abi: TEST_TOKEN_FACTORY_ABI, functionName: 'createToken', args: [name.trim(), symbol] },
+        request: { address: factory, abi: TEST_TOKEN_FACTORY_ABI, functionName: 'createToken', args: [name.trim(), symbol] },
         sync: false, // not a distribution event, nothing for the backend to record
       })
       // Read the new token address from the TokenCreated event
       const receipt = await publicClient!.getTransactionReceipt({ hash })
       for (const log of receipt.logs) {
-        if (log.address.toLowerCase() !== TEST_TOKEN_FACTORY.toLowerCase()) continue
+        if (log.address.toLowerCase() !== factory.toLowerCase()) continue
         try {
           const ev = decodeEventLog({ abi: TEST_TOKEN_FACTORY_ABI, data: log.data, topics: log.topics })
           if (ev.eventName === 'TokenCreated') {
@@ -56,7 +58,7 @@ export function CreateTestToken({ onCreated, compact }: { onCreated?: (t: Create
     }
   }
 
-  if (!TEST_TOKEN_FACTORY) return null
+  if (!factory) return null
 
   return (
     <div className="space-y-3">

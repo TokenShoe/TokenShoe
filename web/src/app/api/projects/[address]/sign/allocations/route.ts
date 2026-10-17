@@ -23,7 +23,7 @@ import { log } from '@/lib/logger'
 import type { Project } from '@/db/schema'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 120
+export const maxDuration = 60 // Vercel Hobby caps functions at 60s
 
 type Ctx = { params: { address: string } }
 
@@ -60,7 +60,7 @@ async function removeAccounts(tx: Tx, where: ReturnType<typeof and>) {
 }
 
 async function summary(project: string) {
-  const [s] = await db.select({
+  const [s] = await db().select({
     count: sql<number>`count(*) filter (where ${signAllocations.amount} > 0)::int`,
     totalAllocated: sql<string>`coalesce(sum(${signAllocations.amount}), 0)::text`,
     totalClaimed: sql<string>`coalesce(sum(${signAllocations.claimed}), 0)::text`,
@@ -75,9 +75,9 @@ export const GET = route<Ctx>('sign.alloc.list', async (req, { params }) => {
   const q = parseQuery(req, ListQuery)
   const where = and(eq(signAllocations.projectAddress, project.address), q.account ? eq(signAllocations.account, q.account) : undefined)
   const [items, [{ total }], sum] = await Promise.all([
-    db.select().from(signAllocations).where(where).orderBy(asc(signAllocations.createdAt), asc(signAllocations.account))
+    db().select().from(signAllocations).where(where).orderBy(asc(signAllocations.createdAt), asc(signAllocations.account))
       .limit(q.pageSize).offset((q.page - 1) * q.pageSize),
-    db.select({ total: sql<number>`count(*)::int` }).from(signAllocations).where(where),
+    db().select({ total: sql<number>`count(*)::int` }).from(signAllocations).where(where),
     summary(project.address),
   ])
   return json({ items, total, page: q.page, pageSize: q.pageSize, summary: sum })
@@ -90,7 +90,7 @@ export const POST = route<Ctx>('sign.alloc.upload', async (req, { params }) => {
   const mode = z.enum(['merge', 'replace']).default('merge').parse(form.get('mode') ?? undefined)
   const rows = parseAllocationCsv(await readCsvFile(form.get('file') as File | null), project.tokenDecimals, unit)
 
-  await db.transaction(async (tx) => {
+  await db().transaction(async (tx) => {
     const stamp = new Date()
     await upsertRows(tx, project.address, rows, stamp)
     if (mode === 'replace') {
@@ -114,11 +114,11 @@ export const PUT = route<Ctx>('sign.alloc.put', async (req, { params }) => {
   if (typeof amount === 'string') throw new ApiError(400, 'BAD_AMOUNT', amount)
   if (amount === 0n) throw new ApiError(400, 'BAD_AMOUNT', 'Amount cannot be 0 (use DELETE to remove an address)')
 
-  await db.transaction(async (tx) => {
+  await db().transaction(async (tx) => {
     await upsertRows(tx, project.address, [{ account: body.account, amount }], new Date())
     await refreshRecipients(tx, project.address)
   })
-  const [row] = await db.select().from(signAllocations)
+  const [row] = await db().select().from(signAllocations)
     .where(and(eq(signAllocations.projectAddress, project.address), eq(signAllocations.account, body.account)))
   return json(row)
 })
@@ -126,7 +126,7 @@ export const PUT = route<Ctx>('sign.alloc.put', async (req, { params }) => {
 export const DELETE = route<Ctx>('sign.alloc.delete', async (req, { params }) => {
   const project = await loadSignProject(req, params.address)
   const { account } = parseQuery(req, z.object({ account: zAddress }))
-  await db.transaction(async (tx) => {
+  await db().transaction(async (tx) => {
     await removeAccounts(tx, and(eq(signAllocations.projectAddress, project.address), eq(signAllocations.account, account)))
     await refreshRecipients(tx, project.address)
   })

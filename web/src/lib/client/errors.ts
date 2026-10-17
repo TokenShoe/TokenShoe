@@ -6,13 +6,15 @@ import {
   ResourceUnavailableRpcError, HttpRequestError, InternalRpcError, LimitExceededRpcError,
 } from 'viem'
 import { ApiClientError } from './api'
-import { appChain } from '@/config/chain'
+import { activeNetworkConfig } from './activeNetwork'
 
-/** Shown when the wallet can't reach the chain through its own RPC setting */
-export const WALLET_RPC_HINT =
-  `Your wallet couldn't reach ${appChain.name}. Open your wallet, approve or reject any pending request, ` +
-  `and make sure the ${appChain.name} network uses RPC URL ${appChain.rpcUrls.default.http[0]} (chain ID ${appChain.id}). ` +
-  'The banner at the top of the page can set it for you.'
+/** Shown when the wallet can't reach the selected network's chain through its own RPC setting */
+export function walletRpcHint() {
+  const c = activeNetworkConfig().chain
+  return `Your wallet couldn't reach ${c.name}. Open your wallet, approve or reject any pending request, ` +
+    `and make sure the ${c.name} network uses RPC URL ${c.rpcUrls.default.http[0]} (chain ID ${c.id}). ` +
+    'The banner at the top of the page can set it for you.'
+}
 
 /** Contract custom error name -> message */
 const CONTRACT_ERRORS: Record<string, string> = {
@@ -51,7 +53,7 @@ export function errorMessage(e: unknown): string {
     if (/user rejected|denied/i.test(e.message)) return 'Request rejected in wallet.'
     // -32002: wallet has a pending request, or its RPC can't serve the request
     if (e.walk((x) => x instanceof ResourceUnavailableRpcError || x instanceof HttpRequestError ||
-      x instanceof InternalRpcError || x instanceof LimitExceededRpcError)) return WALLET_RPC_HINT
+      x instanceof InternalRpcError || x instanceof LimitExceededRpcError)) return walletRpcHint()
     return e.shortMessage || e.message
   }
   if (e instanceof Error) return e.message.slice(0, 200)

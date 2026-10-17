@@ -15,7 +15,7 @@ import { api } from '@/lib/client/api'
 import { errorMessage } from '@/lib/client/errors'
 import { formatDateTime, formatToken, parseTokenInput, toInputAmount } from '@/lib/client/format'
 import { ERC20_FULL_ABI, PROJECT_BASE_ABI, VESTING_WRITE_ABI } from '@/lib/abis'
-import { appChain } from '@/config/chain'
+import { useNetwork } from '@/hooks/useNetwork'
 import type { ProjectDTO } from '@/lib/client/types'
 
 export function Section({ title, desc, children }: { title: string; desc?: React.ReactNode; children: React.ReactNode }) {
@@ -70,14 +70,15 @@ export function DetailsForm({ p }: { p: ProjectDTO }) {
 
 export function FundPanel({ p }: { p: ProjectDTO }) {
   const { address } = useAccount()
+  const chainId = useNetwork().network.chain.id
   const { send } = useChainTx()
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
   const reads = useReadContracts({
     allowFailure: false,
     contracts: [
-      { address: p.tokenAddress, abi: ERC20_FULL_ABI, functionName: 'balanceOf', args: [address ?? zeroAddress], chainId: appChain.id },
-      { address: p.tokenAddress, abi: ERC20_FULL_ABI, functionName: 'allowance', args: [address ?? zeroAddress, p.address], chainId: appChain.id },
+      { address: p.tokenAddress, abi: ERC20_FULL_ABI, functionName: 'balanceOf', args: [address ?? zeroAddress], chainId },
+      { address: p.tokenAddress, abi: ERC20_FULL_ABI, functionName: 'allowance', args: [address ?? zeroAddress, p.address], chainId },
     ],
     query: { enabled: !!address },
   })
@@ -134,15 +135,16 @@ export function PausePanel({ p }: { p: ProjectDTO }) {
 
 export function WithdrawPanel({ p }: { p: ProjectDTO }) {
   const { address } = useAccount()
+  const chainId = useNetwork().network.chain.id
   const { send } = useChainTx()
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
-  const bal = useReadContract({ address: p.tokenAddress, abi: ERC20_FULL_ABI, functionName: 'balanceOf', args: [p.address], chainId: appChain.id })
+  const bal = useReadContract({ address: p.tokenAddress, abi: ERC20_FULL_ABI, functionName: 'balanceOf', args: [p.address], chainId })
   const vest = useReadContracts({
     allowFailure: false,
     contracts: [
-      { address: p.address, abi: VESTING_WRITE_ABI, functionName: 'totalAllocated', chainId: appChain.id },
-      { address: p.address, abi: PROJECT_BASE_ABI, functionName: 'totalClaimed', chainId: appChain.id },
+      { address: p.address, abi: VESTING_WRITE_ABI, functionName: 'totalAllocated', chainId },
+      { address: p.address, abi: PROJECT_BASE_ABI, functionName: 'totalClaimed', chainId },
     ],
     query: { enabled: p.type === 'vesting' },
   })

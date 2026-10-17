@@ -1,12 +1,13 @@
 /**
  * Shared helpers for API routes:
  *  - ApiError: business error with an HTTP status and a machine-readable code the frontend can switch on
- *  - route(): wrapper that catches errors uniformly, logs timing and returns JSON
+ *  - route(): wrapper that picks the request's network, catches errors uniformly, logs timing and returns JSON
  *  - parseBody / parseQuery: validate parameters with zod
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z, ZodError, type ZodTypeAny } from 'zod'
 import { log } from './logger'
+import { NETWORK_HEADER, networkFromRequest, runWithNetwork } from './request-network'
 
 export class ApiError extends Error {
   constructor(
@@ -29,29 +30,36 @@ export function json(data: unknown, init?: ResponseInit) {
 
 type Handler<C> = (req: NextRequest, ctx: C) => Promise<Response>
 
-/** Wrap a route handler: uniform error shape { error: { code, message, details } } + access log */
+/**
+ * Wrap a route handler: runs it for the request's network (see lib/request-network.ts),
+ * uniform error shape { error: { code, message, details } } + access log
+ */
 export function route<C = unknown>(name: string, fn: Handler<C>): Handler<C> {
   return async (req, ctx) => {
     const started = Date.now()
+    const network = networkFromRequest(req)
     try {
-      const res = await fn(req, ctx)
-      log.info('api', { route: name, method: req.method, status: res.status, ms: Date.now() - started })
+      if (!network) throw new ApiError(400, 'BAD_NETWORK', 'Unknown network')
+      const res = await runWithNetwork(network, () => fn(req, ctx))
+      // Same URL, different network = different response; keep shared caches from mixing them up
+      res.headers.append('vary', NETWORK_HEADER)
+      log.info('api', { route: name, network, method: req.method, status: res.status, ms: Date.now() - started })
       return res
     } catch (e) {
       const ms = Date.now() - started
       if (e instanceof ApiError) {
-        log.warn('api', { route: name, method: req.method, status: e.status, code: e.code, msg: e.message, ms })
+        log.warn('api', { route: name, network, method: req.method, status: e.status, code: e.code, msg: e.message, ms })
         return json({ error: { code: e.code, message: e.message, details: e.details } }, { status: e.status })
       }
       if (e instanceof ZodError) {
-        log.warn('api', { route: name, method: req.method, status: 400, code: 'BAD_REQUEST', ms })
+        log.warn('api', { route: name, network, method: req.method, status: 400, code: 'BAD_REQUEST', ms })
         return json(
           { error: { code: 'BAD_REQUEST', message: 'Invalid parameters', details: e.issues } },
           { status: 400 },
         )
       }
       log.error('api', {
-        route: name, method: req.method, status: 500, ms,
+        route: name, network, method: req.method, status: 500, ms,
         msg: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined,
       })
