@@ -5,13 +5,20 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface ITokenDisImpl {
-    function initialize(address token, address creator, uint256 amount, bytes calldata initData) external;
+    function initialize(
+        address token,
+        address creator,
+        uint256 amount,
+        bytes calldata initData
+    ) external;
 }
 
-contract TokenDisFactory is Ownable2Step {
+contract TokenShoeFactory is Ownable2Step {
     using SafeERC20 for IERC20;
 
     mapping(uint8 => address) public implementations;
@@ -33,17 +40,23 @@ contract TokenDisFactory is Ownable2Step {
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
-    function setImplementation(uint8 implType, address impl) external onlyOwner {
+    function setImplementation(
+        uint8 implType,
+        address impl
+    ) external onlyOwner {
         if (impl == address(0)) revert ZeroAddress();
 
         implementations[implType] = impl;
         emit ImplementationSet(implType, impl);
     }
 
-    function createProject(uint8 implType, address token, uint256 fundAmount, bytes32 userSalt, bytes calldata initData)
-        external
-        returns (address proxy)
-    {
+    function createProject(
+        uint8 implType,
+        address token,
+        uint256 fundAmount,
+        bytes32 userSalt,
+        bytes calldata initData
+    ) external returns (address proxy) {
         address impl = implementations[implType];
         if (impl == address(0)) revert MissingImplementation(implType);
         if (token == address(0)) revert ZeroAddress();
@@ -63,7 +76,11 @@ contract TokenDisFactory is Ownable2Step {
         emit ProjectCreated(proxy, implType, msg.sender, token, received);
     }
 
-    function predictAddress(uint8 implType, address creator, bytes32 userSalt) external view returns (address) {
+    function predictAddress(
+        uint8 implType,
+        address creator,
+        bytes32 userSalt
+    ) external view returns (address) {
         address impl = implementations[implType];
         if (impl == address(0)) revert MissingImplementation(implType);
 

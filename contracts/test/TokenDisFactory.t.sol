@@ -2,14 +2,14 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {TokenDisFactory} from "../TokenDisFactory.sol";
+import {TokenShoeFactory} from "../TokenShoeFactory.sol";
 import {TokenMerkleDis} from "../TokenMerkleDis.sol";
 import {TokenSignDis} from "../TokenSignDis.sol";
 import {TokenVesting} from "../TokenVesting.sol";
 import {MockERC20} from "./MockERC20.sol";
 
-contract TokenDisFactoryTest is Test {
-    TokenDisFactory internal factory;
+contract TokenShoeFactoryTest is Test {
+    TokenShoeFactory internal factory;
     TokenMerkleDis internal merkleImpl;
     TokenSignDis internal signImpl;
     TokenVesting internal vestingImpl;
@@ -27,7 +27,7 @@ contract TokenDisFactoryTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        factory = new TokenDisFactory(owner);
+        factory = new TokenShoeFactory(owner);
         merkleImpl = new TokenMerkleDis();
         signImpl = new TokenSignDis();
         vestingImpl = new TokenVesting();
@@ -49,7 +49,10 @@ contract TokenDisFactoryTest is Test {
     function test_SetImplementation_EmitsEvent() public {
         vm.prank(owner);
         vm.expectEmit(true, true, false, false, address(factory));
-        emit TokenDisFactory.ImplementationSet(TYPE_MERKLE, address(merkleImpl));
+        emit TokenShoeFactory.ImplementationSet(
+            TYPE_MERKLE,
+            address(merkleImpl)
+        );
         factory.setImplementation(TYPE_MERKLE, address(merkleImpl));
     }
 
@@ -61,7 +64,7 @@ contract TokenDisFactoryTest is Test {
 
     function test_SetImplementation_RevertsIfZeroAddress() public {
         vm.prank(owner);
-        vm.expectRevert(TokenDisFactory.ZeroAddress.selector);
+        vm.expectRevert(TokenShoeFactory.ZeroAddress.selector);
         factory.setImplementation(TYPE_MERKLE, address(0));
     }
 
@@ -82,13 +85,17 @@ contract TokenDisFactoryTest is Test {
         return abi.encode(root, start, end);
     }
 
-    function _signInitData(address signerAddr) internal view returns (bytes memory) {
+    function _signInitData(
+        address signerAddr
+    ) internal view returns (bytes memory) {
         uint64 start = uint64(block.timestamp + 100);
         uint64 end = uint64(block.timestamp + 1000);
         return abi.encode(signerAddr, start, end);
     }
 
-    function _vestingInitData(address beneficiary) internal view returns (bytes memory) {
+    function _vestingInitData(
+        address beneficiary
+    ) internal view returns (bytes memory) {
         TokenVesting.Schedule[] memory list = new TokenVesting.Schedule[](1);
         list[0] = TokenVesting.Schedule({
             beneficiary: beneficiary,
@@ -112,7 +119,13 @@ contract TokenDisFactoryTest is Test {
 
         vm.startPrank(alice);
         token.approve(address(factory), FUND);
-        address proxy = factory.createProject(TYPE_MERKLE, address(token), FUND, bytes32(0), initData);
+        address proxy = factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            bytes32(0),
+            initData
+        );
         vm.stopPrank();
 
         assertTrue(proxy != address(0));
@@ -126,8 +139,13 @@ contract TokenDisFactoryTest is Test {
 
         vm.startPrank(alice);
         token.approve(address(factory), FUND);
-        address proxy =
-            factory.createProject(TYPE_SIGN, address(token), FUND, bytes32("s1"), _signInitData(makeAddr("signer")));
+        address proxy = factory.createProject(
+            TYPE_SIGN,
+            address(token),
+            FUND,
+            bytes32("s1"),
+            _signInitData(makeAddr("signer"))
+        );
         vm.stopPrank();
 
         assertTrue(proxy != address(0));
@@ -139,8 +157,13 @@ contract TokenDisFactoryTest is Test {
 
         vm.startPrank(alice);
         token.approve(address(factory), FUND);
-        address proxy =
-            factory.createProject(TYPE_VESTING, address(token), FUND, bytes32("v1"), _vestingInitData(alice));
+        address proxy = factory.createProject(
+            TYPE_VESTING,
+            address(token),
+            FUND,
+            bytes32("v1"),
+            _vestingInitData(alice)
+        );
         vm.stopPrank();
 
         assertTrue(proxy != address(0));
@@ -151,13 +174,29 @@ contract TokenDisFactoryTest is Test {
         _setupImpls();
         bytes memory initData = _merkleInitData();
         bytes32 userSalt = bytes32("salt");
-        address predicted = factory.predictAddress(TYPE_MERKLE, alice, userSalt);
+        address predicted = factory.predictAddress(
+            TYPE_MERKLE,
+            alice,
+            userSalt
+        );
 
         vm.startPrank(alice);
         token.approve(address(factory), FUND);
         vm.expectEmit(true, true, true, false, address(factory));
-        emit TokenDisFactory.ProjectCreated(predicted, TYPE_MERKLE, alice, address(token), FUND);
-        factory.createProject(TYPE_MERKLE, address(token), FUND, userSalt, initData);
+        emit TokenShoeFactory.ProjectCreated(
+            predicted,
+            TYPE_MERKLE,
+            alice,
+            address(token),
+            FUND
+        );
+        factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            userSalt,
+            initData
+        );
         vm.stopPrank();
     }
 
@@ -165,23 +204,46 @@ contract TokenDisFactoryTest is Test {
         // TYPE_MERKLE not set
         vm.startPrank(alice);
         token.approve(address(factory), FUND);
-        vm.expectRevert(abi.encodeWithSelector(TokenDisFactory.MissingImplementation.selector, TYPE_MERKLE));
-        factory.createProject(TYPE_MERKLE, address(token), FUND, bytes32(0), _merkleInitData());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenShoeFactory.MissingImplementation.selector,
+                TYPE_MERKLE
+            )
+        );
+        factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            bytes32(0),
+            _merkleInitData()
+        );
         vm.stopPrank();
     }
 
     function test_CreateProject_RevertsIfZeroToken() public {
         _setupImpls();
         vm.prank(alice);
-        vm.expectRevert(TokenDisFactory.ZeroAddress.selector);
-        factory.createProject(TYPE_MERKLE, address(0), FUND, bytes32(0), _merkleInitData());
+        vm.expectRevert(TokenShoeFactory.ZeroAddress.selector);
+        factory.createProject(
+            TYPE_MERKLE,
+            address(0),
+            FUND,
+            bytes32(0),
+            _merkleInitData()
+        );
     }
 
     function test_CreateProject_RevertsIfZeroAmount() public {
         _setupImpls();
         vm.prank(alice);
-        vm.expectRevert(TokenDisFactory.ZeroAmount.selector);
-        factory.createProject(TYPE_MERKLE, address(token), 0, bytes32(0), _merkleInitData());
+        vm.expectRevert(TokenShoeFactory.ZeroAmount.selector);
+        factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            0,
+            bytes32(0),
+            _merkleInitData()
+        );
     }
 
     // ─── predictAddress ──────────────────────────────────────────────────────────
@@ -189,11 +251,21 @@ contract TokenDisFactoryTest is Test {
     function test_PredictAddress_MatchesActual() public {
         _setupImpls();
         bytes32 userSalt = bytes32("mysalt");
-        address predicted = factory.predictAddress(TYPE_MERKLE, alice, userSalt);
+        address predicted = factory.predictAddress(
+            TYPE_MERKLE,
+            alice,
+            userSalt
+        );
 
         vm.startPrank(alice);
         token.approve(address(factory), FUND);
-        address actual = factory.createProject(TYPE_MERKLE, address(token), FUND, userSalt, _merkleInitData());
+        address actual = factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            userSalt,
+            _merkleInitData()
+        );
         vm.stopPrank();
 
         assertEq(predicted, actual);
@@ -201,13 +273,26 @@ contract TokenDisFactoryTest is Test {
 
     function test_PredictAddress_DifferentSalts() public {
         _setupImpls();
-        address p1 = factory.predictAddress(TYPE_MERKLE, alice, bytes32("salt1"));
-        address p2 = factory.predictAddress(TYPE_MERKLE, alice, bytes32("salt2"));
+        address p1 = factory.predictAddress(
+            TYPE_MERKLE,
+            alice,
+            bytes32("salt1")
+        );
+        address p2 = factory.predictAddress(
+            TYPE_MERKLE,
+            alice,
+            bytes32("salt2")
+        );
         assertTrue(p1 != p2);
     }
 
     function test_PredictAddress_RevertsIfMissingImpl() public {
-        vm.expectRevert(abi.encodeWithSelector(TokenDisFactory.MissingImplementation.selector, 99));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenShoeFactory.MissingImplementation.selector,
+                99
+            )
+        );
         factory.predictAddress(99, alice, bytes32(0));
     }
 
@@ -217,9 +302,27 @@ contract TokenDisFactoryTest is Test {
         _setupImpls();
         vm.startPrank(alice);
         token.approve(address(factory), FUND * 3);
-        factory.createProject(TYPE_MERKLE, address(token), FUND, bytes32("a"), _merkleInitData());
-        factory.createProject(TYPE_MERKLE, address(token), FUND, bytes32("b"), _merkleInitData());
-        factory.createProject(TYPE_MERKLE, address(token), FUND, bytes32("c"), _merkleInitData());
+        factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            bytes32("a"),
+            _merkleInitData()
+        );
+        factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            bytes32("b"),
+            _merkleInitData()
+        );
+        factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            bytes32("c"),
+            _merkleInitData()
+        );
         vm.stopPrank();
 
         assertEq(factory.projectCountOf(alice), 3);
@@ -230,12 +333,24 @@ contract TokenDisFactoryTest is Test {
         _setupImpls();
         vm.startPrank(alice);
         token.approve(address(factory), FUND);
-        factory.createProject(TYPE_MERKLE, address(token), FUND, bytes32("a1"), _merkleInitData());
+        factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            bytes32("a1"),
+            _merkleInitData()
+        );
         vm.stopPrank();
 
         vm.startPrank(bob);
         token.approve(address(factory), FUND);
-        factory.createProject(TYPE_MERKLE, address(token), FUND, bytes32("b1"), _merkleInitData());
+        factory.createProject(
+            TYPE_MERKLE,
+            address(token),
+            FUND,
+            bytes32("b1"),
+            _merkleInitData()
+        );
         vm.stopPrank();
 
         assertEq(factory.projectCountOf(alice), 1);

@@ -2,8 +2,8 @@
   "contractAddress": "0x5b696f2dbc9accef620e3a705251e10a89884e8a",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
-  "contract_code_path": "/home/user/app/contracts/TokenDisFactory.sol",
-  "contract_compiled_code_path": "/home/user/app/contracts/out/TokenDisFactory.sol/TokenDisFactory.json",
+  "contract_code_path": "/home/user/app/contracts/TokenShoeFactory.sol",
+  "contract_compiled_code_path": "/home/user/app/contracts/out/TokenShoeFactory.sol/TokenShoeFactory.json",
   "contract_network_and_links": {
     "Arc Testnet": "https://explorer.testnet.arc.io/address/0x5b696f2dbc9accef620e3a705251e10a89884e8a"
   },

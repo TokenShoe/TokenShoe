@@ -17,3 +17,15 @@ contracts/cache/
 # misc
 .DS_Store
 *.log
+
+# next.js
+.next/
+*.tsbuildinfo
+
+# forge deployment records for the local chain (anvil)
+broadcast/*/31337/
+
+# browser test screenshots
+web/e2e-shots/
+deployments/31337.json
+.next-e2e/

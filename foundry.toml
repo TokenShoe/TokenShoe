@@ -10,3 +10,11 @@ auto_detect_solc = false
 evm_version = "paris"
 optimizer = true
 optimizer_runs = 200
+
+# The deploy script writes addresses to deployments/<chainId>.json
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
+# RPC alias: forge script ... --rpc-url arc_testnet (URL read from .env)
+[rpc_endpoints]
+arc_testnet = "${ARC_TESTNET_RPC_URL}"
+local = "http://127.0.0.1:8545"
