@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# env — never commit secrets
+.env
+.env.local
+.env*.local
+
+# build output
+dist/
+out/
+
+# foundry
+contracts/out/
+contracts/cache/
+
+# misc
+.DS_Store
+*.log
