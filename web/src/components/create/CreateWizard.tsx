@@ -44,10 +44,11 @@ const TYPES: { key: ProjectKind; desc: string; badge: 'blue' | 'green' | 'yellow
 ]
 
 function initialState(): WizardState {
-  const now = Math.floor(Date.now() / 1000)
+  // Default window: opens in 1 hour and stays open for exactly 30 days (same clock time on both ends)
+  const start = Math.floor(Date.now() / 1000) + 3600
   return {
     type: 'merkle', token: '',
-    start: unixToLocalInput(now + 3600), end: unixToLocalInput(now + 30 * 86400),
+    start: unixToLocalInput(start), end: unixToLocalInput(start + 30 * 86400),
     merkleFile: null, merkle: null,
     signerKey: '', signerAddress: '', signerFresh: null, signerBackedUp: false, signFile: null,
     vestingMode: 'manual', vestingFile: null, vestingRows: [emptyVestingRow()], vesting: null,

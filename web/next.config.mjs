@@ -13,8 +13,11 @@ const nextConfig = {
   // Lets e2e runs use their own build dir (NEXT_DIST_DIR=.next-e2e) without disturbing a running `bun run dev`
   distDir: process.env.NEXT_DIST_DIR || '.next',
   experimental: {
-    // pg is a native Node module; don't let Next bundle it
-    serverComponentsExternalPackages: ['pg'],
+    // pg is a native Node module; don't let Next bundle it.
+    // drizzle-orm must stay external too: drizzle checks `client instanceof pg.Pool` to give each transaction its own
+    // connection. If drizzle is bundled, it sees a different copy of pg, the check fails, and every statement of a
+    // "transaction" (BEGIN, advisory locks, COMMIT) silently goes to whichever pooled connection is free.
+    serverComponentsExternalPackages: ['pg', 'drizzle-orm'],
     // Same stubs as the webpack config below, for the Turbopack dev server (`next dev --turbo`)
     turbo: {
       resolveAlias: Object.fromEntries(STUBBED.map((m) => [m, './src/lib/empty-module.js'])),

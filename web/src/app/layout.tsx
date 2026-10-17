@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Space_Grotesk, DM_Sans, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AppProviders } from '@/components/providers/AppProviders'
@@ -23,7 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <WalletNetworkBanner />
           <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">{children}</main>
           <footer className="max-w-5xl mx-auto px-4 sm:px-6 py-10 text-xs text-muted">
-            TokenShoe · Open-source token distribution contracts on Arc
+            TokenShoe · Open-source token distribution contracts on Arc ·{' '}
+            <Link href="/docs" className="hover:text-ink underline underline-offset-2">Docs</Link>
           </footer>
         </AppProviders>
       </body>

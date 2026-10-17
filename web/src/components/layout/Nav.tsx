@@ -5,12 +5,15 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import { ConnectKitButton } from 'connectkit'
 import { Layers, Menu, X } from 'lucide-react'
+import { FaucetButton } from './FaucetButton'
+import { appChain } from '@/config/chain'
 
 const LINKS = [
   { href: '/explore', label: 'Explore' },
   { href: '/create', label: 'Create' },
   { href: '/claim', label: 'Claim' },
   { href: '/projects', label: 'My projects' },
+  { href: '/docs', label: 'Docs' },
 ]
 
 export function Nav() {
@@ -38,6 +41,7 @@ export function Nav() {
         </div>
 
         <div className="flex items-center gap-2">
+          {appChain.testnet && <FaucetButton />}
           <ConnectKitButton />
           <button className="md:hidden p-2 rounded-btn hover:bg-black/5" onClick={() => setOpen(!open)} aria-label="Menu">
             {open ? <X size={18} /> : <Menu size={18} />}
