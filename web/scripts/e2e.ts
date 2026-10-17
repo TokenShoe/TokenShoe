@@ -73,7 +73,7 @@ async function login(account: typeof creator): Promise<string> {
   const { body: { nonce } } = await api('/api/auth/nonce')
   const message = createSiweMessage({
     address: account.address, chainId: foundry.id, domain: 'localhost:3000', nonce,
-    uri: 'http://localhost:3000', version: '1', statement: 'Sign in to TokenDis',
+    uri: 'http://localhost:3000', version: '1', statement: 'Sign in to TokenShoe',
   })
   const signature = await account.signMessage({ message })
   const res = await fetch(BASE + '/api/auth/login', {

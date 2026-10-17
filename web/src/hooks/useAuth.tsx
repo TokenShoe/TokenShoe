@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uri: window.location.origin,
         nonce,
         version: '1',
-        statement: 'Sign in to TokenDis to manage your distribution projects.',
+        statement: 'Sign in to TokenShoe to manage your distribution projects.',
       })
       const signature = await signMessageAsync({ message })
       const r = await api<{ address: string }>('/api/auth/login', { json: { message, signature } })

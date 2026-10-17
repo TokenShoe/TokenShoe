@@ -25,7 +25,7 @@ export function Nav() {
           <span className="w-7 h-7 bg-ink rounded-[6px] flex items-center justify-center">
             <Layers size={14} className="text-white" />
           </span>
-          TokenDis
+          TokenShoe
         </Link>
 
         <div className="hidden md:flex items-center gap-1">

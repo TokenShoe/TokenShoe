@@ -34,8 +34,10 @@ function buildConfig() {
       chains: [appChain],
       transports: { [appChain.id]: http(appChain.rpcUrls.default.http[0]) },
       walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '',
-      appName: 'TokenDis',
+      appName: 'TokenShoe',
       appDescription: 'Token distribution on Arc — Merkle airdrops, signature airdrops and vesting',
+      // ConnectKit shows a "Continue with Aave" account option by default; it's unrelated to us, so hide it
+      enableAaveAccount: false,
       ssr: true,
       ...(MOCK ? { connectors: [mock({ accounts: [mockAccount()], features: { reconnect: true } })] } : {}),
     }),
@@ -63,12 +65,22 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider
           customTheme={{
-            '--ck-font-family': "'DM Sans', sans-serif",
-            '--ck-primary-button-background': '#111111',
-            '--ck-primary-button-hover-background': '#333333',
+            '--ck-font-family': 'var(--font-body), sans-serif',
+            '--ck-border-radius': '12px',
             '--ck-body-background': '#FFFFFF',
             '--ck-body-color': '#111111',
-            '--ck-border-radius': '8px',
+            '--ck-body-color-muted': '#787774',
+            // Wallet list rows use the "primary button" styles: light warm gray (site canvas) with dark text
+            '--ck-primary-button-background': '#F7F6F3',
+            '--ck-primary-button-hover-background': '#EFEDE8',
+            '--ck-primary-button-color': '#111111',
+            '--ck-primary-button-border-radius': '10px',
+            '--ck-primary-button-box-shadow': 'inset 0 0 0 1px #EAEAEA',
+            '--ck-primary-button-hover-box-shadow': 'inset 0 0 0 1px #D9D7D2',
+            '--ck-primary-button-font-weight': '500',
+            '--ck-secondary-button-background': '#F7F6F3',
+            '--ck-secondary-button-hover-background': '#EFEDE8',
+            '--ck-secondary-button-color': '#111111',
           }}
         >
           {MOCK && <MockAutoConnect />}

@@ -17,7 +17,7 @@ export default function ExplorePage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display font-bold text-2xl text-ink tracking-tight-display">Explore projects</h1>
-        <p className="text-muted text-sm mt-1">Every distribution created on TokenDis.</p>
+        <p className="text-muted text-sm mt-1">Every distribution created on TokenShoe.</p>
       </div>
       <Tabs<Filter>
         value={type}

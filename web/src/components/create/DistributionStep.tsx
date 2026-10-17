@@ -17,7 +17,7 @@ import { Tabs } from '@/components/ui/Tabs'
 import { useAuth } from '@/hooks/useAuth'
 import { api, ApiClientError } from '@/lib/client/api'
 import { errorMessage } from '@/lib/client/errors'
-import { formatToken, localInputToUnix, parseTokenInput, shortAddr, toInputAmount } from '@/lib/client/format'
+import { formatToken, localInputToUnix, parseTokenInput, shortAddr, toInputAmount, unixToLocalInput } from '@/lib/client/format'
 import type { MerkleBuild, Patch, RowError, TokenInfo, VestingBuild, VestingRow, WizardState } from './types'
 
 const AIRDROP_TEMPLATE = 'address,amount\n0x1111111111111111111111111111111111111111,100\n0x2222222222222222222222222222222222222222,25.5\n'
@@ -25,8 +25,17 @@ const VESTING_TEMPLATE =
   'beneficiary,amount,tge_time,tge_percent,cliff_days,vesting_days,interval_days,revocable\n' +
   '0x1111111111111111111111111111111111111111,100000,2026-12-01,10,90,360,30,false\n'
 
-export const emptyVestingRow = (): VestingRow => ({
-  beneficiary: '', amount: '', tgeTime: '', tgePercent: '10', cliffDays: '90', vestingDays: '360', intervalDays: '30', revocable: false,
+/** Default TGE: tomorrow at the next full hour (a prefilled value also avoids the browser's localized empty placeholder) */
+function defaultTgeInput(): string {
+  const d = new Date(Date.now() + 86400_000)
+  d.setMinutes(0, 0, 0)
+  d.setHours(d.getHours() + 1)
+  return unixToLocalInput(Math.floor(d.getTime() / 1000))
+}
+
+/** A new schedule row; pass the previous row's TGE so schedules added together share it */
+export const emptyVestingRow = (tgeTime?: string): VestingRow => ({
+  beneficiary: '', amount: '', tgeTime: tgeTime || defaultTgeInput(), tgePercent: '10', cliffDays: '90', vestingDays: '360', intervalDays: '30', revocable: false,
 })
 
 function rowErrors(e: unknown): RowError[] | null {
@@ -129,7 +138,7 @@ function SignSetup({ s, patch }: { s: WizardState; patch: Patch }) {
   }
 
   function downloadBackup() {
-    const text = `TokenDis signer key\nAddress: ${s.signerAddress}\nPrivate key: ${s.signerKey}\n\nThis key can only sign claims for your project. Keep it private.\n`
+    const text = `TokenShoe signer key\nAddress: ${s.signerAddress}\nPrivate key: ${s.signerKey}\n\nThis key can only sign claims for your project. Keep it private.\n`
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
     a.download = `tokendis-signer-${s.signerAddress.slice(2, 8)}.txt`
@@ -273,7 +282,7 @@ function VestingSetup({ s, patch, token }: { s: WizardState; patch: Patch; token
               </label>
             </div>
           ))}
-          <Button variant="secondary" size="sm" onClick={() => patch({ vestingRows: [...s.vestingRows, emptyVestingRow()], vesting: null })}>
+          <Button variant="secondary" size="sm" onClick={() => patch({ vestingRows: [...s.vestingRows, emptyVestingRow(s.vestingRows.at(-1)?.tgeTime)], vesting: null })}>
             <Plus size={13} /> Add schedule
           </Button>
         </div>

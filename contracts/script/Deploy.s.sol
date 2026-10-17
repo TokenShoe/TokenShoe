@@ -8,7 +8,7 @@ import {TokenVesting} from "../TokenVesting.sol";
 import {TokenShoeFactory} from "../TokenShoeFactory.sol";
 import {TestTokenFactory} from "../TestTokenFactory.sol";
 
-/// @title TokenDis one-shot deployment script
+/// @title TokenShoe one-shot deployment script
 /// @notice Deploys the 3 implementation contracts + the factory and registers the implementations (type 0 Merkle / 1 Sign / 2 Vesting).
 ///         Also deploys TestTokenFactory (lets website users mint a test ERC-20) unless disabled.
 ///

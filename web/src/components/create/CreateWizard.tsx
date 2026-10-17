@@ -28,7 +28,7 @@ import { useChainTx } from '@/hooks/useChainTx'
 import { useAuth } from '@/hooks/useAuth'
 import { api } from '@/lib/client/api'
 import { errorMessage } from '@/lib/client/errors'
-import { formatDateTime, formatToken, localInputToUnix, parseTokenInput, shortAddr } from '@/lib/client/format'
+import { formatDateTime, formatToken, localInputToUnix, parseTokenInput, shortAddr, unixToLocalInput } from '@/lib/client/format'
 import { ERC20_FULL_ABI, FACTORY_WRITE_ABI } from '@/lib/abis'
 import { appChain, FACTORY_ADDRESS, IMPL_TYPE, type ProjectKind } from '@/config/chain'
 import { TokenStep } from './TokenStep'
@@ -45,10 +45,9 @@ const TYPES: { key: ProjectKind; desc: string; badge: 'blue' | 'green' | 'yellow
 
 function initialState(): WizardState {
   const now = Math.floor(Date.now() / 1000)
-  const toInput = (u: number) => new Date(u * 1000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
   return {
     type: 'merkle', token: '',
-    start: toInput(now + 3600), end: toInput(now + 30 * 86400),
+    start: unixToLocalInput(now + 3600), end: unixToLocalInput(now + 30 * 86400),
     merkleFile: null, merkle: null,
     signerKey: '', signerAddress: '', signerFresh: null, signerBackedUp: false, signFile: null,
     vestingMode: 'manual', vestingFile: null, vestingRows: [emptyVestingRow()], vesting: null,

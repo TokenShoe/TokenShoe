@@ -10,7 +10,7 @@ const body = DM_Sans({ subsets: ['latin'], variable: '--font-body', display: 'sw
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: { default: 'TokenDis — Token distribution on Arc', template: '%s · TokenDis' },
+  title: { default: 'TokenShoe — Token distribution on Arc', template: '%s · TokenShoe' },
   description: 'Deploy Merkle airdrops, signature-gated drops and vesting schedules in one transaction.',
 }
 
@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <WalletNetworkBanner />
           <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">{children}</main>
           <footer className="max-w-5xl mx-auto px-4 sm:px-6 py-10 text-xs text-muted">
-            TokenDis · Open-source token distribution contracts on Arc
+            TokenShoe · Open-source token distribution contracts on Arc
           </footer>
         </AppProviders>
       </body>

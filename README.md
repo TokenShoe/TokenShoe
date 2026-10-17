@@ -1,4 +1,4 @@
-# TokenDis (TokenShoe) — Token Distribution on Arc
+# TokenShoe (TokenShoe) — Token Distribution on Arc
 
 Project creators deploy a token distribution contract in **a single transaction** and distribute ERC-20 tokens to users. Three modes are supported:
 
@@ -24,7 +24,7 @@ contracts/                 Solidity contracts (Foundry)
   TestTokenFactory.sol     Testnet helper: anyone can mint a 100M test ERC-20 to try the platform
   script/Deploy.s.sol      Deploy script (3 implementations + factory, registers types 0/1/2, self-checks, writes deployments/)
   test/                    Foundry unit tests
-  TokenDis-design.md       Contract design doc (the most detailed business description)
+  TokenShoe-design.md       Contract design doc (the most detailed business description)
 web/                       Website: Next.js 14 (pages + API routes) + Postgres + Drizzle
   src/app/                 Pages (/, /explore, /create, /claim, /projects, /projects/[address])
   src/app/api/             All API routes
@@ -81,12 +81,12 @@ Other usages: `./deploy.sh local` (deploy to local anvil), `./deploy.sh -y` (ski
 
 Deployed 2026-10-17 by `0xa30Db5ee76e7d4b2B5F8048518EE160B559A56f9` (also the factory owner). Source of truth: `deployments/5042002.json`; the code defaults (`web/src/config/chain.ts`, `web/src/lib/env.ts`) point here too.
 
-| Contract | Address |
-|---|---|
-| TokenShoeFactory | [`0x865F2f2c7b9D557AEa92f70e8eF05E287E7d00b8`](https://explorer.testnet.arc.io/address/0x865F2f2c7b9D557AEa92f70e8eF05E287E7d00b8) |
-| TokenMerkleDis (impl, type 0) | [`0xAc68198e66f46920125D48fAfA978c5067cE4B15`](https://explorer.testnet.arc.io/address/0xAc68198e66f46920125D48fAfA978c5067cE4B15) |
-| TokenSignDis (impl, type 1) | [`0x17968730099016e6679911Ad62603e337d3dcc75`](https://explorer.testnet.arc.io/address/0x17968730099016e6679911Ad62603e337d3dcc75) |
-| TokenVesting (impl, type 2) | [`0xC4e6Da6235190422E6BC4d3D7a1E0DEd412E3877`](https://explorer.testnet.arc.io/address/0xC4e6Da6235190422E6BC4d3D7a1E0DEd412E3877) |
+| Contract                          | Address                                                                                                                            |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| TokenShoeFactory                  | [`0x865F2f2c7b9D557AEa92f70e8eF05E287E7d00b8`](https://explorer.testnet.arc.io/address/0x865F2f2c7b9D557AEa92f70e8eF05E287E7d00b8) |
+| TokenMerkleDis (impl, type 0)     | [`0xAc68198e66f46920125D48fAfA978c5067cE4B15`](https://explorer.testnet.arc.io/address/0xAc68198e66f46920125D48fAfA978c5067cE4B15) |
+| TokenSignDis (impl, type 1)       | [`0x17968730099016e6679911Ad62603e337d3dcc75`](https://explorer.testnet.arc.io/address/0x17968730099016e6679911Ad62603e337d3dcc75) |
+| TokenVesting (impl, type 2)       | [`0xC4e6Da6235190422E6BC4d3D7a1E0DEd412E3877`](https://explorer.testnet.arc.io/address/0xC4e6Da6235190422E6BC4d3D7a1E0DEd412E3877) |
 | TestTokenFactory (testnet helper) | [`0x6F846226c060792d2B4934bF9F83760423811eAd`](https://explorer.testnet.arc.io/address/0x6F846226c060792d2B4934bF9F83760423811eAd) |
 
 All three implementations are registered on the factory (verified on-chain). The broadcast log of this deployment is in `broadcast/Deploy.s.sol/5042002/`.
@@ -310,6 +310,10 @@ bun install
 bun run db:migrate              # create tables (after changing schema.ts, run bun run db:generate first)
 bun run dev                     # http://localhost:3000
 ```
+
+`bun run dev` (`web/scripts/dev.ts`) starts Next.js with **Turbopack** and pre-compiles the main pages in the background; wait for `✅ Ready to use` before opening the browser and the first load is instant. Without it, the first page took ~17s to compile in dev (≈12,000 modules, mostly wallet SDKs pulled in by ConnectKit); Turbopack alone brings that to ~8s. Fallback: `bun run dev:webpack`. Production (`bun run build && bun run start`) is precompiled and doesn't have this delay.
+
+Other web commands: `bun run test` (unit tests), `bun run typecheck`, `bun run build`.
 
 ### Local development / end-to-end tests
 

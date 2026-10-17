@@ -1,5 +1,5 @@
 /**
- * TokenDis database schema (Postgres + Drizzle)
+ * TokenShoe database schema (Postgres + Drizzle)
  *
  * Design principles:
  *  - No on-chain indexer. After every transaction the frontend sends the txHash to POST /api/tx;

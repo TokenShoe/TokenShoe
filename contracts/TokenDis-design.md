@@ -1,4 +1,4 @@
-# TokenDis Smart-Contract Design Doc
+# TokenShoe Smart-Contract Design Doc
 
 **Status:** Draft  
 **Authors:** TokenShoe Team  
