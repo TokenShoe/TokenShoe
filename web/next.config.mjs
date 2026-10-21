@@ -18,10 +18,6 @@ const nextConfig = {
     // connection. If drizzle is bundled, it sees a different copy of pg, the check fails, and every statement of a
     // "transaction" (BEGIN, advisory locks, COMMIT) silently goes to whichever pooled connection is free.
     serverComponentsExternalPackages: ['pg', 'drizzle-orm'],
-    // Same stubs as the webpack config below, for the Turbopack dev server (`next dev --turbo`)
-    turbo: {
-      resolveAlias: Object.fromEntries(STUBBED.map((m) => [m, './src/lib/empty-module.js'])),
-    },
   },
   webpack: (config) => {
     config.resolve.alias = {
